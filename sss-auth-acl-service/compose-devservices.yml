@@ -26,9 +26,9 @@ services:
     ports:
       - "5432:5432"
     environment:
-      - POSTGRES_DB=auth_acl_db
-      - POSTGRES_USER=quarkus
-      - POSTGRES_PASSWORD=quarkus123
+      POSTGRES_DB: auth_acl_db
+      POSTGRES_USER: quarkus
+      POSTGRES_PASSWORD: quarkus123
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-scripts:/docker-entrypoint-initdb.d
@@ -36,12 +36,40 @@ services:
     networks:
       - sensor-network
 
+  # Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus-server
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - sensor-network
+    depends_on:
+      - mqtt-broker
+      - auth-acl-db
+
+  # Grafana
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana-dashboard
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - sensor-network
+    depends_on:
+      - prometheus
 
 volumes:
   postgres_data:
-  pgadmin_data:
   emqx_data:
   emqx_log:
+  grafana_data:
 
 networks:
   sensor-network:

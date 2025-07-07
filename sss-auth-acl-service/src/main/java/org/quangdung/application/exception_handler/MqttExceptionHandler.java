@@ -1,7 +1,9 @@
 package org.quangdung.application.exception_handler;
 
+import org.jboss.logging.Logger;
 import org.quangdung.core.exception.MqttUsernameAlreadyExistsException;
 
+import jakarta.inject.Inject;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.ExceptionMapper;
 import jakarta.ws.rs.ext.Provider;
@@ -9,6 +11,13 @@ import lombok.Data;
 
 @Provider
 public class MqttExceptionHandler implements ExceptionMapper<Exception>{
+    private final Logger log;
+
+    @Inject
+    public MqttExceptionHandler(Logger log) {
+        this.log = log;
+    }
+
 
     @Data
     private class ErrorResponse{
@@ -23,6 +32,7 @@ public class MqttExceptionHandler implements ExceptionMapper<Exception>{
 
     @Override
     public Response toResponse(Exception ex) {
+        log.error(ex);
         if(ex instanceof MqttUsernameAlreadyExistsException) {
             return Response.status(409)
                 .entity(new ErrorResponse("CONFLICT", ex.getMessage()))
