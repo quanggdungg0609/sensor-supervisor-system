@@ -1,6 +1,5 @@
 package org.quangdung.core.metric;
 
-import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 

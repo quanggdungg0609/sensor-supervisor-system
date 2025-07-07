@@ -31,10 +31,10 @@ public class PasswordUtil implements IPasswordUtil {
      */
     @Override
     public String hash(String input) {
+        if (input == null || input.trim().isEmpty()) {
+            throw new IllegalArgumentException("Input cannot be null or empty");
+        }
         try {
-            if (input == null || input.trim().isEmpty()) {
-                throw new IllegalArgumentException("Input cannot be null or empty");
-            }
             
             // Use custom salt if provided, otherwise generate new salt with configured rounds
             String salt = (customSalt != null && !customSalt.trim().isEmpty()) 
