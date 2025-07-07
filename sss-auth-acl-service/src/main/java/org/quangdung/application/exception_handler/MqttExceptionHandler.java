@@ -1,0 +1,37 @@
+package org.quangdung.application.exception_handler;
+
+import org.quangdung.core.exception.MqttUsernameAlreadyExistsException;
+
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.ext.ExceptionMapper;
+import jakarta.ws.rs.ext.Provider;
+import lombok.Data;
+
+@Provider
+public class MqttExceptionHandler implements ExceptionMapper<Exception>{
+
+    @Data
+    private class ErrorResponse{
+        private String errorCode;
+        private String message;
+
+        public ErrorResponse(String errorCode, String message){
+            this.errorCode = errorCode;
+            this.message = message;
+        }
+    }
+
+    @Override
+    public Response toResponse(Exception ex) {
+        if(ex instanceof MqttUsernameAlreadyExistsException) {
+            return Response.status(409)
+                .entity(new ErrorResponse("CONFLICT", ex.getMessage()))
+                .build();
+        }else{
+            return Response.status(500)
+                .entity(new ErrorResponse("SERVER_ERROR", "Internal server error"))
+                .build();
+        }
+    }
+    
+}
