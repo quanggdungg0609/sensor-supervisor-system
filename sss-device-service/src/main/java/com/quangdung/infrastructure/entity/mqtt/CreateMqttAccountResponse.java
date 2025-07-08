@@ -1,4 +1,4 @@
-package org.quangdung.application.dto.response;
+package com.quangdung.infrastructure.entity.mqtt;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -7,7 +7,7 @@ import lombok.Data;
 
 @Data
 @Builder
-public class MqttAccountInfoWithPass {
+public class CreateMqttAccountResponse {
     @JsonProperty("mqtt_username")
     private String mqttUsername;
     @JsonProperty("mqtt_password")
