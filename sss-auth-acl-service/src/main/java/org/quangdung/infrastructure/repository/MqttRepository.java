@@ -1,29 +1,45 @@
 package org.quangdung.infrastructure.repository;
 
 
+import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.jboss.logging.Logger;
 import org.quangdung.core.exception.CheckClientIdExistsException;
 import org.quangdung.core.exception.CheckMqttUsernameExistsException;
 import org.quangdung.core.exception.FindByClientIdException;
 import org.quangdung.core.exception.FindByMqttUsernameException;
+import org.quangdung.core.exception.MqttAccountNotExistsException;
+import org.quangdung.core.exception.ServiceCommunicationException;
+import org.quangdung.core.exception.FindByMqttUsernameException;
+
 import org.quangdung.core.metric.MetricService;
+import org.quangdung.domain.entity.DeviceInfo;
 import org.quangdung.domain.entity.MqttAccount;
 import org.quangdung.domain.repository.IMqttRepository;
+import org.quangdung.infrastructure.dao.DeviceDAO;
+import org.quangdung.infrastructure.entity.DeviceDetailsResponse;
 import org.quangdung.infrastructure.entity.MqttAccountEntity;
 
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.ws.rs.WebApplicationException;
 
 @ApplicationScoped
 public class MqttRepository implements IMqttRepository {
     private final Logger log; 
     private final MetricService metricsService;
+    private final DeviceDAO deviceDAO;
+
 
     @Inject
-    public MqttRepository(Logger log, MetricService metricsService) {
+    public MqttRepository(
+        Logger log,
+        MetricService metricsService,
+        @RestClient DeviceDAO deviceDAO
+    ) {
         this.log = log;
         this.metricsService = metricsService;
+        this.deviceDAO = deviceDAO;
     }
 
     @Override
@@ -159,5 +175,41 @@ public class MqttRepository implements IMqttRepository {
                 return new FindByClientIdException("Failed to find MQTT account", throwable);
             });
         }, "operation=create_account");
+    }
+
+    @Override
+    public Uni<DeviceInfo> getDeviceInfoByClientId(String clientId) {
+         return metricsService.timeOperation("mqtt.repository.get_device_info_by_client_id", () -> {
+            return MqttAccountEntity.<MqttAccountEntity>find("clientId", clientId).firstResult()
+                .onItem().ifNull().failWith(new MqttAccountNotExistsException("Mqtt account not found for clientId: " + clientId))
+                .onItem().ifNotNull().transformToUni(mqttAccountEntity -> { // Changed from transform to transformToUni
+                    log.infof("Found MqttAccountEntity for clientId %s. Fetching device info from DeviceService...", clientId);
+                    return deviceDAO.getDeviceByUuid(mqttAccountEntity.getDeviceUuid().toString())
+                        .onItem().transform(deviceDetailsResponse -> {
+                            log.infof("Received DeviceDetailsResponse for deviceUuid %s.", deviceDetailsResponse.getDeviceUuid());
+                            metricsService.incrementCounter("mqtt.repository.get_device_info_by_client_id", "result=success");
+                            return DeviceInfo.builder()
+                                    .deviceUuid(deviceDetailsResponse.getDeviceUuid())
+                                    .deviceName(deviceDetailsResponse.getDeviceName())
+                                    .mqttUsername(deviceDetailsResponse.getMqttUsername())
+                                    .clientId(clientId)
+                                    .build();
+                        });
+                })
+                .onFailure().transform(throwable -> { 
+                        log.error(throwable);
+                        metricsService.incrementCounter("mqtt.repository.get_device_info_by_client_id", "error_type=" + throwable.getClass().getSimpleName());
+                        if (throwable instanceof MqttAccountNotExistsException) {
+                            return throwable; 
+                        } else if (throwable instanceof WebApplicationException) {
+                            return throwable; 
+                        } else {
+                            return new ServiceCommunicationException(
+                                String.format("An unexpected error occurred while fetching device info for clientId %s: %s", clientId, throwable.getMessage()),
+                                throwable
+                            );
+                        }
+            });
+        }, "operation=get_device_info_by_client_id");
     }
 }

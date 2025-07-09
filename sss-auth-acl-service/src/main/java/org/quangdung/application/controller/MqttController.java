@@ -148,8 +148,9 @@ public class MqttController {
 
     @GET
     @Path("/device-info/{clientId}")
+    @WithSession
     public Uni<Response> getDeviceInfoByClientId(@PathParam("clientId") String clientId){
         log.info("Received request to get device info for clientId: " + clientId);
-        return Uni.createFrom().item(Response.ok(clientId).build());
+        return mqttService.getDeviceInfoByClientId(clientId);
     }
 }

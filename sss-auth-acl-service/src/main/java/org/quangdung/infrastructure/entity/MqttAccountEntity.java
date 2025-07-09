@@ -48,7 +48,7 @@ public class MqttAccountEntity extends PanacheEntity{
     private String mqttPassword;
 
     @Column(name="device_uuid")
-    private String deivceUuid;
+    private String deviceUuid;
 
     @Builder.Default
     @OneToMany(

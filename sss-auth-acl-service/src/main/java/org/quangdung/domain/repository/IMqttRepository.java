@@ -1,5 +1,6 @@
 package org.quangdung.domain.repository;
 
+import org.quangdung.domain.entity.DeviceInfo;
 import org.quangdung.domain.entity.MqttAccount;
 
 import io.smallrye.mutiny.Uni;
@@ -10,4 +11,5 @@ public interface IMqttRepository {
     Uni<MqttAccount> createAccount(MqttAccount mqttAccount);
     Uni<MqttAccount> findByMqttUsername(String mqttUsername);
     Uni<MqttAccount> findByClientId(String clientId);
+    Uni<DeviceInfo> getDeviceInfoByClientId(String clientId);
 }

@@ -6,6 +6,7 @@ import org.quangdung.application.dto.request.MqttAuthRequest;
 import org.quangdung.application.dto.request.MqttCreateAccountRequest;
 import org.quangdung.application.dto.response.MqttAccountInfoWithPass;
 import org.quangdung.application.dto.response.MqttResponse;
+import org.quangdung.domain.use_case.interfaces.IGetDeviceDetailsByClientIdUseCase;
 import org.quangdung.domain.use_case.interfaces.IMqttAuthenticationUseCase;
 import org.quangdung.domain.use_case.interfaces.IMqttAuthorizationUseCase;
 import org.quangdung.domain.use_case.interfaces.IMqttCreateAccountUseCase;
@@ -21,18 +22,20 @@ public class MqttService {
     private final IMqttAuthenticationUseCase authenticationUseCase;
     private final IMqttAuthorizationUseCase authorizationUseCase;
     private final IMqttCreateAccountUseCase createAccountUseCase;
-    
+    private final IGetDeviceDetailsByClientIdUseCase getDeviceDetailsByClientIdUseCase;
     @Inject
     public MqttService(
         Logger log,
         IMqttAuthenticationUseCase authenticationUseCase,
         IMqttAuthorizationUseCase authorizationUseCase,
-        IMqttCreateAccountUseCase createAccountUseCase
+        IMqttCreateAccountUseCase createAccountUseCase, 
+        IGetDeviceDetailsByClientIdUseCase getDeviceDetailsByClientIdUseCase
     ) {
         this.log = log;
         this.authenticationUseCase = authenticationUseCase;
         this.authorizationUseCase = authorizationUseCase;
         this.createAccountUseCase = createAccountUseCase;
+        this.getDeviceDetailsByClientIdUseCase = getDeviceDetailsByClientIdUseCase;
     }
 
     public Uni<Response> createNewAccount(MqttCreateAccountRequest request){
@@ -99,5 +102,12 @@ public class MqttService {
                 log.error("Authorization service error", throwable);
                 return Response.ok(MqttResponse.deny()).build();
             });
+    }
+
+
+    public Uni<Response> getDeviceInfoByClientId(String clientId) {
+        return getDeviceDetailsByClientIdUseCase.execute(clientId).onItem().transform(deviceInfo -> {
+            return Response.ok(deviceInfo).build();
+        });
     }
 }

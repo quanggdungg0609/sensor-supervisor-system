@@ -47,7 +47,7 @@ public class MqttAccount {
         
         return MqttAccount.builder()
             .id(entity.id)
-            .deviceUuid(entity.getDeivceUuid())
+            .deviceUuid(entity.getDeviceUuid())
             .mqttUsername(entity.getMqttUsername())
             .mqttPassword(entity.getMqttPassword())
             .clientId(entity.getClientId())
@@ -68,7 +68,7 @@ public class MqttAccount {
         MqttAccountEntity entity = MqttAccountEntity.builder()
             .mqttUsername(this.mqttUsername)
             .mqttPassword(this.mqttPassword)
-            .deivceUuid(this.deviceUuid)
+            .deviceUuid(this.deviceUuid)
             .clientId(this.clientId)
             .createdAt(this.createdAt)
             .updatedAt(this.updatedAt)
