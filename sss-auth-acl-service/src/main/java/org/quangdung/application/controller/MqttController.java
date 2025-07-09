@@ -1,6 +1,7 @@
 package org.quangdung.application.controller;
 
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
 
 import org.jboss.logging.Logger;
 import org.quangdung.application.dto.request.MqttAclRequest;
@@ -15,6 +16,7 @@ import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
@@ -141,5 +143,13 @@ public class MqttController {
                         "error_type=" + throwable.getClass().getSimpleName());
                 });
         }, "endpoint=/create_account", "method=POST");
+    }
+
+
+    @GET
+    @Path("/device-info/{clientId}")
+    public Uni<Response> getDeviceInfoByClientId(@PathParam("clientId") String clientId){
+        log.info("Received request to get device info for clientId: " + clientId);
+        return Uni.createFrom().item(Response.ok(clientId).build());
     }
 }

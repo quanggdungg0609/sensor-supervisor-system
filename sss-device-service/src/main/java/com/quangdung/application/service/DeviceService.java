@@ -7,6 +7,7 @@ import com.quangdung.core.exception.InvalidMqttUsernameException;
 import com.quangdung.core.exception.MqttUsernameAlreadyExistsException;
 import com.quangdung.domain.usecase.interfaces.ICheckMqttUsernameExistsUseCase;
 import com.quangdung.domain.usecase.interfaces.ICreateDeviceUseCase;
+import com.quangdung.domain.usecase.interfaces.IGetDeviceByUuidUseCase;
 
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -18,6 +19,7 @@ public class DeviceService {
     private final Logger log;
     private final ICheckMqttUsernameExistsUseCase checkMqttUsernameExistsUseCase;
     private final ICreateDeviceUseCase createDeviceUseCase;
+    private final IGetDeviceByUuidUseCase getDeviceByUuidUseCase;
 
 
 
@@ -25,11 +27,13 @@ public class DeviceService {
     public DeviceService(
         Logger log, 
         ICreateDeviceUseCase createDeviceUseCase,
-        ICheckMqttUsernameExistsUseCase checkMqttUsernameExistsUseCase
+        ICheckMqttUsernameExistsUseCase checkMqttUsernameExistsUseCase,
+        IGetDeviceByUuidUseCase getDeviceByUuidUseCase
     ){
         this.log = log;
         this.createDeviceUseCase = createDeviceUseCase;
         this.checkMqttUsernameExistsUseCase = checkMqttUsernameExistsUseCase;
+        this.getDeviceByUuidUseCase = getDeviceByUuidUseCase;
     }
 
     
@@ -54,4 +58,10 @@ public class DeviceService {
         });
     }
 
+
+    public Uni<Response> getDeviceInfoByUuid(String uuid){
+        return getDeviceByUuidUseCase.execute(uuid).onItem().transform(
+            deviceInfo -> Response.ok().entity(deviceInfo).build()
+        );
+    }
 }

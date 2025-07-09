@@ -4,6 +4,7 @@ import org.jboss.logging.Logger;
 import org.quangdung.core.exception.MqttUsernameAlreadyExistsException;
 
 import jakarta.inject.Inject;
+import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.ExceptionMapper;
 import jakarta.ws.rs.ext.Provider;
@@ -36,6 +37,10 @@ public class MqttExceptionHandler implements ExceptionMapper<Exception>{
         if(ex instanceof MqttUsernameAlreadyExistsException) {
             return Response.status(409)
                 .entity(new ErrorResponse("CONFLICT", ex.getMessage()))
+                .build();
+        }if(ex instanceof  NotFoundException){
+            return Response.status(404)
+                .entity(new ErrorResponse("NOT_FOUND", ex.getMessage()))
                 .build();
         }else{
             return Response.status(500)

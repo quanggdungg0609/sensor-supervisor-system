@@ -7,4 +7,5 @@ import io.smallrye.mutiny.Uni;
 public interface IDeviceRepository {
     Uni<Device> createDevice(Device device);
     Uni<Boolean> isMqttUsernameExist(String mqttUsername);
+    Uni<Device>  getDeviceByUuid(String deviceUuid);
 }

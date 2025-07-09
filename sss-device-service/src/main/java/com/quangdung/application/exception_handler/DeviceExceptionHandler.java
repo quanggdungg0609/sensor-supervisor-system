@@ -2,10 +2,12 @@ package com.quangdung.application.exception_handler;
 
 import org.jboss.logging.Logger;
 
+import com.quangdung.core.exception.DeviceNotFoundException;
 import com.quangdung.core.exception.InvalidMqttUsernameException;
 import com.quangdung.core.exception.MqttUsernameAlreadyExistsException;
 
 import jakarta.inject.Inject;
+import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.ExceptionMapper;
 import jakarta.ws.rs.ext.Provider;
@@ -45,6 +47,15 @@ public class DeviceExceptionHandler implements ExceptionMapper<Exception>{
                         .entity(
                             new ErrorResponse("BAD_REQUEST", ex.getMessage())
                         ).build();
+        }else if(ex instanceof DeviceNotFoundException){
+            return Response.status(Response.Status.NOT_FOUND)
+                        .entity(
+                            new ErrorResponse("NOT_FOUND", ex.getMessage())
+                        ).build();
+        }else if(ex instanceof NotFoundException){
+            return Response.status(Response.Status.NOT_FOUND)
+                        .entity(new ErrorResponse("NOT_FOUND", ex.getMessage()))
+                        .build();
         }else{
             return Response.status(500)
                 .entity(new ErrorResponse("SERVER_ERROR", "Internal server error"))

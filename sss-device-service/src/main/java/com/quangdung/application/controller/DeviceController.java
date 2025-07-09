@@ -9,11 +9,14 @@ import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import io.quarkus.hibernate.reactive.panache.common.WithSession;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
 
@@ -38,4 +41,13 @@ public class DeviceController {
         return deviceService.createDevice(request);
     }
 
+
+    @GET
+    @Path("/{deviceUuid}")
+    @WithSession
+    public Uni<Response> getDeviceByUuid(
+        @PathParam("deviceUuid") String deviceUuid
+    ){
+        return deviceService.getDeviceInfoByUuid(deviceUuid);
+    }
 }
