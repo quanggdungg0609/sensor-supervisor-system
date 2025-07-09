@@ -17,6 +17,13 @@ scrape_configs:
           application: auth-acl-service
     metrics_path: '/metrics' 
 
+  - job_name: 'quarkus-data-ingestor-service' 
+    static_configs:
+      - targets: ['host.docker.internal:2003']
+        labels: 
+          application: data-ingestor-service
+    metrics_path: '/metrics' 
+
   - job_name: 'emqx_stats'
     static_configs:
       - targets: ['mqtt-broker:18083']
