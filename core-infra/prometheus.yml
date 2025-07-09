@@ -1,0 +1,27 @@
+global:
+  scrape_interval: 15s
+
+  external_labels:
+    monitor: 'emqx-monitor'
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    metrics_path: '/metrics'  
+
+  - job_name: 'quarkus-auth-acl-service' 
+    static_configs:
+      - targets: ['host.docker.internal:2001']
+        labels: 
+          application: auth-acl-service
+    metrics_path: '/metrics' 
+
+  - job_name: 'emqx_stats'
+    static_configs:
+      - targets: ['mqtt-broker:18083']
+    metrics_path: '/api/v5/prometheus/stats'
+    scheme: 'http'
+    basic_auth:
+      username: ''
+      password: ''
