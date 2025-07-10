@@ -17,9 +17,9 @@ import (
 // Replace these values with your actual system credentials and broker address.
 const (
 	mqttBroker   = "tcp://localhost:1883" // Example: "tcp://your_broker_host:1883"
-	clientID     = "A6BUDLEG"
+	clientID     = "ZEFR4ZTB"
 	username     = "esp32"
-	password     = "+a9%K219"
+	password     = "g%#w9oZu"
 	publishTopic = "sensors/%s/telemetry" // Topic format, %s will be replaced by clientID
 )
 

@@ -2,7 +2,6 @@ package org.quangdung.infrastructure.dao.influx;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
-import org.quangdung.infrastructure.entity.influx.TelemetryDataEntity;
 
 import com.influxdb.client.InfluxDBClient;
 import com.influxdb.client.InfluxDBClientFactory;
