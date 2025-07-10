@@ -1,6 +1,8 @@
 package org.quangdung.application.controller;
 
 import org.jboss.logging.Logger;
+import org.quangdung.application.service.AlertService;
+import org.quangdung.infrastructure.component.mail.MailComponent;
 
 import io.smallrye.mutiny.Uni;
 import io.vertx.core.json.JsonObject;
@@ -17,17 +19,20 @@ public class AlertController {
     @Inject
     private Logger log;
 
+    @Inject
+    private AlertService alertService;
+
+
+
+
+
     @POST
     @Path("/hook")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public Uni<Response> createAlert(String jsonBody){
           try {
-            JsonObject jsonObject = new JsonObject(jsonBody);
-            log.info("Vert.x JsonObject: " + jsonObject.encodePrettily());
-
-            return Uni.createFrom().item(Response.ok("{\"status\": \"success\", \"message\": \"Manual alert received and parsed\"}").build());
-
+            return alertService.processAlert(jsonBody);
         } catch (Exception e) {
             log.error("Error parsing JSON string: " + e.getMessage(), e);
             // Return a bad request or server error response

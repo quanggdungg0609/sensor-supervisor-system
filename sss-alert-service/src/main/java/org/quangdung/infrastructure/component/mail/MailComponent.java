@@ -19,13 +19,14 @@ public class MailComponent {
     public Uni<Void> sendAlertMail(String subject, String body){
         log.info("Sending mail...");
         Mail mail = new Mail()
-            .addTo("truongquangdung0609@gmail.com")
-            .addTo("pjoffre@lanestel.fr") 
+            .addTo("sangvo0507@gmail.com")
+            // .addTo("pjoffre@lanestel.fr") 
             .setSubject(subject)
             .setText(body);
         return mailer.send(mail).onItem().invoke(()->{
             log.info("Mail sent successfully!");
-        });
+        })
+        .onFailure().invoke(throwable -> log.error(throwable));
     }
 
 }
