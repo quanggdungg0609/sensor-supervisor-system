@@ -7,6 +7,7 @@ import org.quangdung.infrastructure.component.rabbitmq.model.DeviceStatusModel;
 
 import io.smallrye.mutiny.Uni;
 import io.smallrye.reactive.messaging.MutinyEmitter;
+import io.smallrye.reactive.messaging.rabbitmq.OutgoingRabbitMQMetadata;
 
 import java.time.Instant;
 import java.util.HashMap;
@@ -46,10 +47,14 @@ public class RabbitMqMessageProducer {
 
         long startTime = System.nanoTime();
 
-        Map<String, String> headers = new HashMap<>();
+
+        Map<String, Object> headers = new HashMap<>();
         headers.put("clientId", deviceStatusModel.getClientId());
         headers.put("timestamp-sent", Instant.now().toString());
-        Message<DeviceStatusModel> message = Message.of(deviceStatusModel).addMetadata(headers);
+        OutgoingRabbitMQMetadata rabbitmqMetadata = OutgoingRabbitMQMetadata.builder()
+                                                      .withHeaders(headers)
+                                                      .build();
+        Message<DeviceStatusModel> message = Message.of(deviceStatusModel).addMetadata(rabbitmqMetadata);
 
         return deviceStatusEmitter.sendMessage(message)
             .onItem().invoke(()->{
@@ -85,10 +90,14 @@ public class RabbitMqMessageProducer {
 
         long startTime = System.nanoTime();
 
-        Map<String, String> headers = new HashMap<>();
+        Map<String, Object> headers = new HashMap<>();
         headers.put("clientId", deviceDataModel.getClientId());
         headers.put("timestamp-sent", Instant.now().toString());
-        Message<DeviceDataModel> message = Message.of(deviceDataModel).addMetadata(headers);
+        OutgoingRabbitMQMetadata rabbitmqMetadata = OutgoingRabbitMQMetadata.builder()
+                                                      .withHeaders(headers)
+                                                      .build();
+                                                      
+        Message<DeviceDataModel> message = Message.of(deviceDataModel).addMetadata(rabbitmqMetadata);
 
         return deviceDataEmitter.sendMessage(message)
             .onItem().invoke(()->{

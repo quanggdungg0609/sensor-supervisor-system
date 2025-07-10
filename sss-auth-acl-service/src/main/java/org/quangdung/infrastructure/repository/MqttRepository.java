@@ -179,15 +179,13 @@ public class MqttRepository implements IMqttRepository {
 
     @Override
     public Uni<DeviceInfo> getDeviceInfoByClientId(String clientId) {
-         return metricsService.timeOperation("mqtt.repository.get_device_info_by_client_id", () -> {
-            return MqttAccountEntity.<MqttAccountEntity>find("clientId", clientId).firstResult()
+        return MqttAccountEntity.<MqttAccountEntity>find("clientId", clientId).firstResult()
                 .onItem().ifNull().failWith(new MqttAccountNotExistsException("Mqtt account not found for clientId: " + clientId))
                 .onItem().ifNotNull().transformToUni(mqttAccountEntity -> { // Changed from transform to transformToUni
                     log.infof("Found MqttAccountEntity for clientId %s. Fetching device info from DeviceService...", clientId);
                     return deviceDAO.getDeviceByUuid(mqttAccountEntity.getDeviceUuid().toString())
                         .onItem().transform(deviceDetailsResponse -> {
                             log.infof("Received DeviceDetailsResponse for deviceUuid %s.", deviceDetailsResponse.getDeviceUuid());
-                            metricsService.incrementCounter("mqtt.repository.get_device_info_by_client_id", "result=success");
                             return DeviceInfo.builder()
                                     .deviceUuid(deviceDetailsResponse.getDeviceUuid())
                                     .deviceName(deviceDetailsResponse.getDeviceName())
@@ -198,7 +196,6 @@ public class MqttRepository implements IMqttRepository {
                 })
                 .onFailure().transform(throwable -> { 
                         log.error(throwable);
-                        metricsService.incrementCounter("mqtt.repository.get_device_info_by_client_id", "error_type=" + throwable.getClass().getSimpleName());
                         if (throwable instanceof MqttAccountNotExistsException) {
                             return throwable; 
                         } else if (throwable instanceof WebApplicationException) {
@@ -210,6 +207,5 @@ public class MqttRepository implements IMqttRepository {
                             );
                         }
             });
-        }, "operation=get_device_info_by_client_id");
     }
 }

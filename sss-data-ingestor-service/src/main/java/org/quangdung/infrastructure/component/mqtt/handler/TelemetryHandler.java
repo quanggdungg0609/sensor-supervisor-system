@@ -3,6 +3,7 @@ package org.quangdung.infrastructure.component.mqtt.handler;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.Map;
 
 import org.jboss.logging.Logger;
@@ -62,7 +63,7 @@ public class TelemetryHandler extends MessageHandler {
         DeviceDataModel data = DeviceDataModel.builder()
             .clientId(clientId)
             .data(dataMap)
-            .timestamp(LocalDateTime.ofInstant(Instant.parse(timestampStr), ZoneId.systemDefault()))
+            .timestamp(LocalDateTime.ofInstant(Instant.parse(timestampStr), ZoneOffset.UTC))
             .build();
         return rabbitMqMessageProducer.publishDeviceDataUpdate(data)
             .onItem().invoke(() -> log.info("Device data update sent for client: " + clientId))

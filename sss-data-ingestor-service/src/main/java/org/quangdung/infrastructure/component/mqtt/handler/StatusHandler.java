@@ -34,7 +34,7 @@ public class StatusHandler extends MessageHandler {
 
     @Override
     public String getHandledTopicType() {
-        return "telemetry";
+        return "status";
     }
 
     @Override
