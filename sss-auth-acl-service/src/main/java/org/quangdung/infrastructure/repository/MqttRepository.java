@@ -9,7 +9,6 @@ import org.quangdung.core.exception.FindByClientIdException;
 import org.quangdung.core.exception.FindByMqttUsernameException;
 import org.quangdung.core.exception.MqttAccountNotExistsException;
 import org.quangdung.core.exception.ServiceCommunicationException;
-import org.quangdung.core.exception.FindByMqttUsernameException;
 
 import org.quangdung.core.metric.MetricService;
 import org.quangdung.domain.entity.DeviceInfo;
@@ -207,5 +206,17 @@ public class MqttRepository implements IMqttRepository {
                             );
                         }
             });
+    }
+
+    @Override
+    public Uni<String> getMqttUsernameByClientId(String clientId) {
+        return MqttAccountEntity.find("clientId", clientId).firstResult()
+        .onItem().transform(entity -> {
+            if (entity != null) {
+                return ((MqttAccountEntity) entity).getMqttUsername();
+            } else {
+                throw new MqttAccountNotExistsException("Mqtt account not found for clientId: " + clientId);
+            }
+        });
     }
 }

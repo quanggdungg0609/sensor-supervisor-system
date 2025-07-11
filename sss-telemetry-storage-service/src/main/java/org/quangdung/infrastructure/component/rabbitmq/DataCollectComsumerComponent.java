@@ -36,42 +36,35 @@ public class DataCollectComsumerComponent {
     public Uni<Void> processDeviceData(Message<JsonObject> message) { 
          DeviceDataEntity deviceData;
         try {
-            // Bước 1: Giải mã JSON một cách đồng bộ.
-            // Nếu bước này lỗi, chúng ta sẽ ack message và dừng lại.
             deviceData = objectMapper.readValue(message.getPayload().encode(), DeviceDataEntity.class);
             log.infof("Received and deserialized message for clientId: %s", deviceData.getClientId());
         } catch (Exception e) {
             log.error("Failed to deserialize message. Acknowledging and discarding.", e);
-            message.ack(); // Rất quan trọng: ack các message lỗi để không làm tắc hàng đợi
+            message.ack(); 
             return Uni.createFrom().voidItem();
         }
 
-        // Bước 2: Bắt đầu chuỗi xử lý reactive
         return deviceInfoDAO.getDeviceInfo(deviceData.getClientId())
             .onItem().transformToUni(info -> {
-                // Khối code này được thực thi khi getDeviceInfo thành công.
-                // 'info' là đối tượng DeviceInfoResponse.
+
 
                 TelemetryDataEntity telemetryData = TelemetryDataEntity.builder()
                         .clientId(deviceData.getClientId())
                         .deviceUuid(info.getDeviceUuid())
                         .deviceName(info.getDeviceName())
                         .mqttUsername(info.getMqttUsername())
-                        .timestamp(deviceData.getTimestamp().toInstant(ZoneOffset.UTC)) // Chuyển đổi LocalDateTime -> Instant (UTC)
+                        .timestamp(deviceData.getTimestamp().toInstant(ZoneOffset.UTC))
                         .data(deviceData.getData())
                         .build();
 
                 String line = telemetryData.toLineProtocol("telemetry_data");
 
-                // Trả về Uni từ InfluxDAO. Mutiny sẽ tự động "làm phẳng" nó.
                 return influxDAO.createTelemetryDataByLineProtocol(line);
             })
             .onFailure().invoke(failure -> {
-                // Khối code này được thực thi nếu getDeviceInfo hoặc bước tiếp theo thất bại.
                 log.errorf(failure, "Failed to process message for clientId: %s", deviceData.getClientId());
             })
             .onItemOrFailure().transformToUni((result, failure) -> {
-                // Khối code này luôn được thực thi, đảm bảo message luôn được ack.
                 message.ack();
                 return Uni.createFrom().voidItem();
 

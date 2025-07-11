@@ -41,6 +41,10 @@ public class MqttExceptionHandler implements ExceptionMapper<Exception>{
             return Response.status(409)
                 .entity(new ErrorResponse("CONFLICT", ex.getMessage()))
                 .build();
+        } else if (ex instanceof NotFoundException){
+            return Response.status(404)
+                .entity(new ErrorResponse("NOT_FOUND", ex.getMessage()))
+                .build();
         }else if(ex instanceof MqttAccountNotExistsException){
             return Response.status(404)
                 .entity(new ErrorResponse("NOT_FOUND", ex.getMessage()))

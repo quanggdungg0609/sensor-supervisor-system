@@ -153,4 +153,12 @@ public class MqttController {
         log.info("Received request to get device info for clientId: " + clientId);
         return mqttService.getDeviceInfoByClientId(clientId);
     }
+
+    @GET
+    @Path("/mqtt-username/{clientId}")
+    @WithSession
+    public Uni<Response> getMqttUsernameByClientId(@PathParam("clientId") String clientId){
+        log.info("Received request to get mqtt username for clientId: " + clientId);
+        return mqttService.getMqttUsernameByClientId(clientId);
+    }
 }

@@ -6,7 +6,9 @@ import org.quangdung.application.dto.request.MqttAuthRequest;
 import org.quangdung.application.dto.request.MqttCreateAccountRequest;
 import org.quangdung.application.dto.response.MqttAccountInfoWithPass;
 import org.quangdung.application.dto.response.MqttResponse;
+import org.quangdung.application.dto.response.MqttUsernameRes;
 import org.quangdung.domain.use_case.interfaces.IGetDeviceDetailsByClientIdUseCase;
+import org.quangdung.domain.use_case.interfaces.IGetMqttUsernameByClientIdUseCase;
 import org.quangdung.domain.use_case.interfaces.IMqttAuthenticationUseCase;
 import org.quangdung.domain.use_case.interfaces.IMqttAuthorizationUseCase;
 import org.quangdung.domain.use_case.interfaces.IMqttCreateAccountUseCase;
@@ -23,19 +25,24 @@ public class MqttService {
     private final IMqttAuthorizationUseCase authorizationUseCase;
     private final IMqttCreateAccountUseCase createAccountUseCase;
     private final IGetDeviceDetailsByClientIdUseCase getDeviceDetailsByClientIdUseCase;
+    private final IGetMqttUsernameByClientIdUseCase getMqttUsernameByClientIdUseCase;
+
+
     @Inject
     public MqttService(
         Logger log,
         IMqttAuthenticationUseCase authenticationUseCase,
         IMqttAuthorizationUseCase authorizationUseCase,
         IMqttCreateAccountUseCase createAccountUseCase, 
-        IGetDeviceDetailsByClientIdUseCase getDeviceDetailsByClientIdUseCase
+        IGetDeviceDetailsByClientIdUseCase getDeviceDetailsByClientIdUseCase,
+        IGetMqttUsernameByClientIdUseCase getMqttUsernameByClientIdUseCase
     ) {
         this.log = log;
         this.authenticationUseCase = authenticationUseCase;
         this.authorizationUseCase = authorizationUseCase;
         this.createAccountUseCase = createAccountUseCase;
         this.getDeviceDetailsByClientIdUseCase = getDeviceDetailsByClientIdUseCase;
+        this.getMqttUsernameByClientIdUseCase = getMqttUsernameByClientIdUseCase;
     }
 
     public Uni<Response> createNewAccount(MqttCreateAccountRequest request){
@@ -108,6 +115,16 @@ public class MqttService {
     public Uni<Response> getDeviceInfoByClientId(String clientId) {
         return getDeviceDetailsByClientIdUseCase.execute(clientId).onItem().transform(deviceInfo -> {
             return Response.ok(deviceInfo).build();
+        });
+    }
+
+    public Uni<Response> getMqttUsernameByClientId(String clientId){
+        return getMqttUsernameByClientIdUseCase.execute(clientId).onItem().transform(mqttUsername ->{
+            return Response.ok(
+                MqttUsernameRes.builder()
+                    .mqttUsername(mqttUsername)
+                    .build()
+            ).build();
         });
     }
 }

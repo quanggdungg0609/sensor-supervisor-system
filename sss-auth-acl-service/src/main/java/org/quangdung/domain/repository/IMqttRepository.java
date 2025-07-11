@@ -12,4 +12,5 @@ public interface IMqttRepository {
     Uni<MqttAccount> findByMqttUsername(String mqttUsername);
     Uni<MqttAccount> findByClientId(String clientId);
     Uni<DeviceInfo> getDeviceInfoByClientId(String clientId);
+    Uni<String> getMqttUsernameByClientId(String clientId);
 }
