@@ -3,7 +3,6 @@ package com.quangdung.infrastructure.entity.device_entity;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-import org.hibernate.annotations.GenericGenerator;
 
 import io.quarkus.hibernate.reactive.panache.PanacheEntityBase;
 import jakarta.persistence.Column;

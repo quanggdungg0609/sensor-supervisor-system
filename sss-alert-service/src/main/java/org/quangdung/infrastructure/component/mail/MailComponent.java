@@ -19,7 +19,7 @@ public class MailComponent {
     public Uni<Void> sendAlertMail(String subject, String body){
         log.info("Sending mail...");
         Mail mail = new Mail()
-            .addTo("sangvo0507@gmail.com")
+            .addTo("eric_b_jordan@hotmail.com")
             // .addTo("pjoffre@lanestel.fr") 
             .setSubject(subject)
             .setText(body);

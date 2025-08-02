@@ -3,6 +3,7 @@ package org.quangdung.infrastructure.component.rabbitmq;
 import org.jboss.logging.Logger;
 import org.quangdung.core.metric.MetricService;
 import org.quangdung.infrastructure.component.rabbitmq.model.DeviceDataModel;
+import org.quangdung.infrastructure.component.rabbitmq.model.DevicePowerOutageModel;
 import org.quangdung.infrastructure.component.rabbitmq.model.DeviceStatusModel;
 
 import io.smallrye.mutiny.Uni;
@@ -32,6 +33,10 @@ public class RabbitMqMessageProducer {
     @Inject
     @Channel("device-data-distribution")
     private MutinyEmitter<DeviceDataModel> deviceDataEmitter;
+
+    @Inject
+    @Channel("power-outage-alert")
+    private MutinyEmitter<DevicePowerOutageModel> powerOutageEmitter;
 
     @Inject
     private MetricService metricsService;
@@ -122,4 +127,49 @@ public class RabbitMqMessageProducer {
             });
     }
 
+    /**
+     * Publishes device power outage alert to RabbitMQ
+     * @param devicePowerOutageModel the power outage data model containing client ID, power status and timestamp
+     * @return Uni<Void> representing the completion of the publish operation
+     */
+    public Uni<Void> publishDevicePowerOutageUpdate(DevicePowerOutageModel devicePowerOutageModel) {
+        log.infof("Publishing device power outage update for client ID: %s", devicePowerOutageModel.getClientId());
+
+        metricsService.incrementCounter("rabbitmq_messages_published_total", 
+                                        "channel", "power-outage-alert",
+                                        "status", "attempt");
+
+        long startTime = System.nanoTime();
+     
+        Map<String, Object> headers = new HashMap<>();
+        headers.put("clientId", devicePowerOutageModel.getClientId());
+        headers.put("timestamp-sent", Instant.now().toString());
+        OutgoingRabbitMQMetadata rabbitmqMetadata = OutgoingRabbitMQMetadata.builder()
+                                                      .withHeaders(headers)
+                                                      .build();
+                                                      
+        Message<DevicePowerOutageModel> message = Message.of(devicePowerOutageModel).addMetadata(rabbitmqMetadata);
+        
+        return powerOutageEmitter.sendMessage(message)
+            .onItem().invoke(() -> {
+                long duration = System.nanoTime() - startTime;
+                metricsService.recordTimer("rabbitmq_publish_duration_seconds", duration, TimeUnit.NANOSECONDS,
+                                            "channel", "power-outage-alert",
+                                            "result", "success");
+                metricsService.incrementCounter("rabbitmq_messages_published_total",
+                                                "channel", "power-outage-alert",
+                                                "result", "success");
+                log.infof("Device power outage alert published successfully for client ID: %s", devicePowerOutageModel.getClientId());
+            })
+            .onFailure().invoke(throwable -> {
+                long duration = System.nanoTime() - startTime;
+                metricsService.recordTimer("rabbitmq_publish_duration_seconds", duration, TimeUnit.NANOSECONDS,
+                                            "channel", "power-outage-alert",
+                                            "result", "failure");
+                metricsService.incrementCounter("rabbitmq_messages_published_total",
+                                                "channel", "power-outage-alert",
+                                                "result", "failure");
+                log.errorf(throwable, "Failed to publish device power outage alert for client ID: %s: %s", devicePowerOutageModel.getClientId(), throwable.getMessage());
+            });
+    }
 }

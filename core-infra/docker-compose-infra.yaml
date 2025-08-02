@@ -57,7 +57,7 @@ services:
     restart: unless-stopped
     networks:
       - infrastructure-network
-    healthcheck: # Khuyến nghị thêm healthcheck
+    healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
       interval: 5s
       timeout: 5s
@@ -92,7 +92,7 @@ services:
    # InfluxDB Time Series Database
   influxdb:
     image: influxdb:2.7-alpine 
-    container_name: telemetry-influxdb-instance
+    container_name: shared-telemetry-influxdb
     ports:
       - "8086:8086" 
     environment:
@@ -123,5 +123,9 @@ volumes:
   influxdb_data: {}
 
 networks:
+  shared-network:
+    driver: bridge
   infrastructure-network: 
+    driver: bridge
+  services-network: 
     driver: bridge

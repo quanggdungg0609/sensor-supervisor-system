@@ -58,7 +58,17 @@ public class DeviceStatusConsumer {
         final String clientId = clientIdOptional.get();
         log.infof("Processing status update for clientId: %s", clientId);
 
-        return mqttDAO.getMqttUsernameByClientId(clientId).onItem().transformToUni(
+        return mqttDAO.getMqttUsernameByClientId(clientId)
+        .onFailure().invoke(throwable -> {
+            if (throwable instanceof DeviceNotFoundException) {
+                log.warn("Caught DeviceNotFoundException: " + throwable.getMessage());
+                message.nack(throwable); // Nack nếu không tìm thấy thiết bị
+            } else {
+                log.error("Unhandled error in device status update: " + throwable.getMessage(), throwable);
+                message.nack(throwable); // Nack cho các lỗi khác
+            }
+        })
+        .onItem().transformToUni(
             response ->{
                 log.info("Found mqttUsername: " + response.getMqttUsername() );
                 return DeviceEntity.<DeviceEntity>find("mqttUsername", response.getMqttUsername()).firstResult()
@@ -82,9 +92,6 @@ public class DeviceStatusConsumer {
                     });
             }
         )
-        .onFailure().invoke(throwable -> {
-            log.warn(throwable.getMessage());
-            message.ack();
-        }).replaceWithVoid();
+        .replaceWithVoid();
     }
 }

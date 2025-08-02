@@ -128,6 +128,15 @@ public class CreateMqttAccountUseCase  implements IMqttCreateAccountUseCase{
             .permission(MqttPermission.Permission.ALLOW)
             .allowedQosLevels(defaultQosLevels)
             .build());
+
+        permissions.add(
+            MqttPermission.builder()
+                .topicPattern("sensors/" + clientId + "/power_outage")
+                .action(MqttPermission.MqttAction.PUBLISH)
+                .permission(MqttPermission.Permission.ALLOW)
+                .allowedQosLevels(defaultQosLevels)
+                .build()
+        );
         
         // Permission for command topic (SUBSCRIBE)
         permissions.add(MqttPermission.builder()
