@@ -1,0 +1,7 @@
+[
+  {
+    "name": "org.mindrot.jbcrypt.BCrypt",
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  }
+]

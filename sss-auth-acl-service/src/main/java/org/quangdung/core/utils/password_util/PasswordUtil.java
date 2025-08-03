@@ -1,8 +1,11 @@
 package org.quangdung.core.utils.password_util;
 
 import java.security.SecureRandom;
+import java.util.Optional;
+
 import org.mindrot.jbcrypt.BCrypt;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import io.quarkus.logging.Log;
 
 import jakarta.inject.Singleton;
 
@@ -12,12 +15,12 @@ public class PasswordUtil implements IPasswordUtil {
     private int saltRounds;
 
     @ConfigProperty(name = "app.security.bcrypt.custom-salt")
-    private String customSalt;
-
+    private Optional<String> customSalt;
+    
     private static final String LOWERCASE = "abcdefghijklmnopqrstuvwxyz";
     private static final String UPPERCASE = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     private static final String DIGITS = "0123456789";
-    private static final String SPECIAL_CHARS = "!@#$%&*+-="; // Easy to type special characters
+    private static final String SPECIAL_CHARS = "!@#$%&*+-=";
     private static final String ALL_CHARS = LOWERCASE + UPPERCASE + DIGITS + SPECIAL_CHARS;
     
     private static final SecureRandom random = new SecureRandom();
@@ -34,16 +37,48 @@ public class PasswordUtil implements IPasswordUtil {
         if (input == null || input.trim().isEmpty()) {
             throw new IllegalArgumentException("Input cannot be null or empty");
         }
+        
         try {
+            String salt;
             
-            // Use custom salt if provided, otherwise generate new salt with configured rounds
-            String salt = (customSalt != null && !customSalt.trim().isEmpty()) 
-                ? customSalt 
-                : BCrypt.gensalt(saltRounds);
+            // Check if custom salt is provided and valid
+            if (customSalt.isPresent() && !customSalt.get().trim().isEmpty()) {
+                String saltValue = customSalt.get().trim();
+                if (isValidBCryptSalt(saltValue)) {
+                    salt = saltValue;
+                    Log.debug("Using custom salt for BCrypt");
+                } else {
+                    Log.warn("Invalid custom salt format: " + saltValue + ", generating new salt");
+                    salt = BCrypt.gensalt(saltRounds);
+                }
+            } else {
+                // Generate new salt with configured rounds
+                salt = BCrypt.gensalt(saltRounds);
+                Log.debug("Generated new salt with rounds: " + saltRounds);
+            }
                 
             return BCrypt.hashpw(input, salt);
         } catch (Exception e) {
+            Log.error("Failed to hash input: " + e.getMessage(), e);
             throw new RuntimeException("Failed to hash input", e);
+        }
+    }
+    
+    /**
+     * Validates if the provided salt is in valid BCrypt format
+     * 
+     * @param salt The salt string to validate
+     * @return true if valid BCrypt salt format, false otherwise
+     */
+    private boolean isValidBCryptSalt(String salt) {
+        try {
+            // BCrypt salt should start with $2a$, $2b$, $2x$, or $2y$
+            // and have the format: $2a$rounds$salt
+            return salt != null && 
+                   salt.matches("^\\$2[abxy]\\$\\d{2}\\$.{22}$") &&
+                   salt.length() == 29;
+        } catch (Exception e) {
+            return false;
         }
     }
 

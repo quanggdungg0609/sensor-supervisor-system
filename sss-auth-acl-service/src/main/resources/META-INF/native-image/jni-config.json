@@ -1,0 +1,11 @@
+[
+  {
+    "name": "org.mindrot.jbcrypt.BCrypt",
+    "methods": [
+      {"name": "<init>", "parameterTypes": []},
+      {"name": "gensalt", "parameterTypes": ["int"]},
+      {"name": "hashpw", "parameterTypes": ["java.lang.String", "java.lang.String"]},
+      {"name": "checkpw", "parameterTypes": ["java.lang.String", "java.lang.String"]}
+    ]
+  }
+]
