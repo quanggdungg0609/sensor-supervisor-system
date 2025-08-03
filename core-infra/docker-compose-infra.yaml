@@ -250,6 +250,33 @@ services:
       - rabbitmq
       - device-service-db
 
+  sss-data-ingestor-serivce:
+    image: 192.168.152.117:5000/quangdung/sss-data-ingestor-service:1.0.0-SNAPSHOT-native
+    container_name: sss-data-ingestor-serivce
+    environment:
+      # MQTT Config
+      MQTT_HOST: mqtt-broker
+      MQTT_PORT: 1883
+      MQTT_USER: admin
+      MQTT_PASSWORD: admin123
+      MQTT_CLIENT_ID: ADMINCLIENT
+
+      # RabbitMQ Config
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+
+    restart: unless-stopped
+    depends_on:
+      - rabbitmq
+      - mqtt-broker
+      - sss-auth-acl-service
+    networks:
+      - infrastructure-network
+    
+
+
 volumes:
   emqx_data: {}
   emqx_log: {}
