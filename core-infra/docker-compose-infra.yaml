@@ -1,5 +1,3 @@
-
-
 services:
   traefik:
     image: traefik:v2.10
@@ -274,7 +272,30 @@ services:
       - sss-auth-acl-service
     networks:
       - infrastructure-network
-    
+
+  sss-telemetry-storage-service:
+    image: 192.168.152.117:5000/quangdung/sss-telemetry-storage-service:1.0.0-SNAPSHOT
+    container_name: sss-telemetry-storage-service
+    networks:
+      - infrastructure-network
+      - services-network
+    depends_on:
+      - rabbitmq
+      - influxdb
+      - sss-data-ingestor-serivce
+    restart: unless-stopped
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      DEVICE_INFO_API_URL: http://sss-auth-acl-service:2001/
+      INFLUX_URL: http://localhost:8086
+      INFLUX_TOKEN: my-super-secret-auth-token
+      INFLUX_ORG: my-org
+      INFLUX_BUCKET: my-bucket
 
 
 volumes:
