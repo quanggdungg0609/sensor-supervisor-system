@@ -177,9 +177,9 @@ build_app() {
 # Build JVM application
 build_jvm_app() {
     if [ -f "./mvnw" ]; then
-        ./mvnw clean package -DskipTests
+        ./mvnw clean package -DskipTests -Dquarkus.docker.buildx.platform=linux/amd64
     else
-        mvn clean package -DskipTests
+        mvn clean package -DskipTests -Dquarkus.docker.buildx.platform=linux/amd64
     fi
     
     if [ $? -ne 0 ]; then
@@ -195,7 +195,7 @@ build_native_app() {
     if [ -f "./mvnw" ]; then
         ./mvnw clean package -Dnative -DskipTests -Dquarkus.native.container-build=true
     else
-        mvn clean package -Dnative -DskipTests -Dquarkus.native.container-build=true
+        mvn clean package -Dnative -DskipTests -Dquarkus.native.container-build=true 
     fi
     
     if [ $? -ne 0 ]; then
@@ -238,9 +238,9 @@ build_image() {
     fi
     
     if [ -f "./mvnw" ]; then
-        ./mvnw package $build_args -DskipTests
+        ./mvnw package $build_args -DskipTests -Dquarkus.docker.buildx.platform=linux/amd64
     else
-        mvn package $build_args -DskipTests
+        mvn package $build_args -DskipTests -Dquarkus.docker.buildx.platform=linux/amd64
     fi
     
     if [ $? -ne 0 ]; then
