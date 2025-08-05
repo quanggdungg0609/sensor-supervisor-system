@@ -193,9 +193,9 @@ build_jvm_app() {
 # Build native application
 build_native_app() {
     if [ -f "./mvnw" ]; then
-        ./mvnw clean package -Dnative -DskipTests -Dquarkus.native.container-build=true
+        ./mvnw clean package -Dnative -DskipTests -Dquarkus.native.container-build=true -Dquarkus.docker.buildx.platform=linux/amd64 
     else
-        mvn clean package -Dnative -DskipTests -Dquarkus.native.container-build=true
+        mvn clean package -Dnative -DskipTests -Dquarkus.native.container-build=true -Dquarkus.docker.buildx.platform=linux/amd64 
     fi
     
     if [ $? -ne 0 ]; then
