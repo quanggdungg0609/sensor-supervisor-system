@@ -1,210 +1,204 @@
+version: "3.8"
+
 services:
   traefik:
     image: traefik:v2.10
-    container_name: traefik
     restart: always
     ports:
-      - "80:80"       # The HTTP port
-      - "443:443"     # The HTTPS port
-      - "5050:8080"   # The dashboard port
-      - "1883:1883"   # The MQTT/TCP port for clients to connect to <--- CHANGED
+      - "80:80"
+      - "443:443"
+      - "5050:8080"
+      - "1883:1883"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./traefik.yml:/etc/traefik/traefik.yml:ro # Static config file
+    configs:
+      - source: traefik_config
+        target: /etc/traefik/traefik.yml
     networks:
-      - infrastructure-network
+      - app-network
     labels:
-      # Dashboard labels (unchanged)
       - "traefik.enable=true"
       - "traefik.http.routers.dashboard.rule=Host(`traefik.localhost`)"
       - "traefik.http.routers.dashboard.service=api@internal"
       - "traefik.http.routers.dashboard.middlewares=auth"
       - "traefik.http.middlewares.auth.basicauth.users=admin:mypassword"
+    deploy:
+      placement:
+        constraints:
+          - "node.hostname == u24serv-cac"
 
   mqtt-broker:
     image: emqx/emqx:5.3.0
-    container_name: shared-emqx-broker 
-    ports:
-      - "8883:8883"      # MQTT/SSL
-      - "8083:8083"      # MQTT/WS
-      - "8084:8084"      # MQTT/WSS
-      - "18083:18083"    # Dashboard
+    configs:
+      - source: emqx_config
+        target: /opt/emqx/etc/emqx.conf
     volumes:
-      - ./emqx/etc/emqx.conf:/opt/emqx/etc/emqx.conf:ro
       - emqx_data:/opt/emqx/data
       - emqx_log:/opt/emqx/log
     restart: unless-stopped
     networks:
-      - infrastructure-network 
+      - app-network
     labels:
-      # --- ADDED: Labels for Traefik to route TCP traffic ---
       - "traefik.enable=true"
       - "traefik.tcp.routers.emqx-mqtt.entrypoints=mqtt"
       - "traefik.tcp.routers.emqx-mqtt.rule=HostSNI(`*`)"
       - "traefik.tcp.routers.emqx-mqtt.service=emqx-mqtt-svc"
-      - "traefik.tcp.services.emqx-mqtt-svc.loadbalancer.server.port=1883" 
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - "traefik.tcp.services.emqx-mqtt-svc.loadbalancer.server.port=1883"
     healthcheck:
       test: ["CMD", "emqx_ctl", "status"]
       interval: 5s
       timeout: 5s
       retries: 5
       start_period: 10s
+    deploy:
+      placement:
+        constraints:
+          - "node.hostname == u24serv-db"
 
   redis:
-    image: redis:7-alpine 
-    container_name: shared-redis
-    ports:
-      - "6379:6379" 
+    image: redis:7-alpine
     volumes:
-      - redis_data:/data 
+      - redis_data:/data
     restart: unless-stopped
     networks:
-      - infrastructure-network
+      - app-network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 5s
       retries: 5
       start_period: 5s
+    deploy:
+      placement:
+        constraints:
+          - "node.hostname == u24serv-db"
 
   rabbitmq:
-    image: rabbitmq:3.12-management-alpine 
-    container_name: shared-rabbitmq
-    ports:
-      - "5672:5672"      
-      - "15672:15672"    
+    image: rabbitmq:3.12-management-alpine
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
     volumes:
-      - rabbitmq_data:/var/lib/rabbitmq 
+      - rabbitmq_data:/var/lib/rabbitmq
     restart: unless-stopped
     networks:
-      - infrastructure-network
+      - app-network
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
       interval: 5s
       timeout: 5s
       retries: 5
       start_period: 10s
-
+    deploy:
+      placement:
+        constraints:
+          - "node.hostname == u24serv-db"
 
   prometheus:
     image: prom/prometheus:latest
-    container_name: shared-prometheus-server 
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    configs:
+      - source: prometheus_config
+        target: /etc/prometheus/prometheus.yml
     networks:
-      - infrastructure-network
-    
+      - app-network
+    deploy:
+      placement:
+        constraints:
+          - "node.hostname == u24serv-db"
+
   grafana:
     image: grafana/grafana:latest
-    container_name: shared-grafana-dashboard 
-    ports:
-      - "3000:3000"
     environment:
       GF_SECURITY_ADMIN_PASSWORD: admin
     volumes:
       - grafana_data:/var/lib/grafana
     networks:
-      - infrastructure-network
+      - app-network
     depends_on:
-      - prometheus 
+      - prometheus
+    deploy:
+      placement:
+        constraints:
+          - "node.hostname == u24serv-db"
 
-   # InfluxDB Time Series Database
   influxdb:
-    image: influxdb:2.7-alpine 
-    container_name: shared-telemetry-influxdb
-    ports:
-      - "8086:8086" 
+    image: influxdb:2.7-alpine
     environment:
       DOCKER_INFLUXDB_INIT_MODE: setup
-      DOCKER_INFLUXDB_INIT_USERNAME: admin 
-      DOCKER_INFLUXDB_INIT_PASSWORD: password 
-      DOCKER_INFLUXDB_INIT_ORG: sss-quangdung 
-      DOCKER_INFLUXDB_INIT_BUCKET: telemetry-data 
-      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: my-super-secret-token 
+      DOCKER_INFLUXDB_INIT_USERNAME: admin
+      DOCKER_INFLUXDB_INIT_PASSWORD: password
+      DOCKER_INFLUXDB_INIT_ORG: sss-quangdung
+      DOCKER_INFLUXDB_INIT_BUCKET: telemetry-data
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: my-super-secret-token
     volumes:
-      - influxdb_data:/var/lib/influxdb2 
+      - influxdb_data:/var/lib/influxdb2
     restart: unless-stopped
     networks:
-      - infrastructure-network
+      - app-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8086/ping"]
       interval: 5s
       timeout: 5s
       retries: 5
       start_period: 20s
+    deploy:
+      placement:
+        constraints:
+          - "node.hostname == u24serv-db"
 
-
-  # PostgreSQL Database for Auth ACL Service (Private Network)
   auth-acl-db:
     image: postgres:15-alpine
-    container_name: auth-acl-postgres-db 
-    ports:
-      - "5432:5432" 
     environment:
       POSTGRES_DB: auth_acl_db
       POSTGRES_USER: quarkus
       POSTGRES_PASSWORD: quarkus123
     volumes:
-      - postgres_data_auth_acl_service:/var/lib/postgresql/data 
-      - ./init-scripts:/docker-entrypoint-initdb.d 
+      - postgres_data_auth_acl_service:/var/lib/postgresql/data
     restart: unless-stopped
     networks:
-      - auth-acl-private-network 
-    healthcheck: 
+      - auth-acl-private-network
+    healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
       timeout: 5s
       retries: 5
       start_period: 10s
+    deploy:
+      placement:
+        constraints:
+          - "node.hostname == u24serv-db"
 
-  # SSS Auth and ACL Service
   sss-auth-acl-service:
     image: 192.168.152.117:5000/quangdung/sss-auth-and-acl-service:latest
-    container_name: sss-auth-acl-service
     environment:
-      # Service Configuration
       SERVICE_PORT: 2001
-      
-      # Database Configuration
       DB_ADDRESS: auth-acl-db:5432
       DB_USERNAME: quarkus
       DB_PASSWORD: quarkus123
-      
-      # External Service URLs 
       DEVICE_SERVICE_API_URL: http://sss-device-service:2002/
-      
-      # MQTT Configuration
       MQTT_BROKER_URL: mqtt://mqtt-broker:1883
       MQTT_ADMIN_USERNAME: admin
       MQTT_ADMIN_PASSWORD: admin123
       MQTT_ADMIN_CLIENTID: ADMINCLIENT
-      
-      # Security Configuration
       BCRYPT_SALT_ROUNDS: 12
       BCRYPT_CUSTOM_SALT: $2a$12$abcdefghijklmnopqrstuv
       APP_SECRET_KEY: your-secret-key-here-change-in-production
-      
     restart: unless-stopped
     networks:
-      - infrastructure-network
+      - app-network
       - auth-acl-private-network
     depends_on:
       - mqtt-broker
       - redis
       - auth-acl-db
-      - sss-device-service  # Thêm dependency
+      - sss-device-service
+    deploy:
+      placement:
+        constraints:
+          - "node.hostname == u24serv-cac"
 
-  # Thêm Device Service Database
   device-service-db:
     image: postgres:15-alpine
-    container_name: device-service-app-db
     environment:
       POSTGRES_DB: device_db
       POSTGRES_USER: quarkus
@@ -220,30 +214,26 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
-    
+    deploy:
+      placement:
+        constraints:
+          - "node.hostname == u24serv-db"
 
-  # Thêm Device Service
   sss-device-service:
     image: 192.168.152.117:5000/quangdung/sss-device-service:latest
-    container_name: sss-device-service
     environment:
-      # Database Configuration
       DB_ADDRESS: device-service-db:5432
       DB_USERNAME: quarkus
       DB_PASSWORD: quarkus123
       DB_GENERATION: update
-      
-      # MQTT Configuration
       MQTT_AUTH_ACL_URL: http://sss-auth-acl-service:2001
-      
-      # RabbitMQ Configuration
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: 5672
       RABBITMQ_USER: guest
       RABBITMQ_PASSWORD: guest
     restart: unless-stopped
     networks:
-      - infrastructure-network
+      - app-network
       - device-service-private-network
     depends_on:
       - rabbitmq
@@ -255,38 +245,39 @@ services:
       - "traefik.http.services.device-api-svc.loadbalancer.server.port=2002"
       - "traefik.http.routers.device-api.middlewares=strip-device-prefix"
       - "traefik.http.middlewares.strip-device-prefix.stripprefix.prefixes=/devices-service"
+    deploy:
+      placement:
+        constraints:
+          - "node.hostname == u24serv-cac"
 
   sss-data-ingestor-serivce:
     image: 192.168.152.117:5000/quangdung/sss-data-ingestor-service:1.0.0-SNAPSHOT-native
-    container_name: sss-data-ingestor-serivce
     environment:
-      # MQTT Config
       MQTT_HOST: mqtt-broker
       MQTT_PORT: 1883
       MQTT_USER: admin
       MQTT_PASSWORD: admin123
       MQTT_CLIENT_ID: ADMINCLIENT
-
-      # RabbitMQ Config
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: 5672
       RABBITMQ_USER: guest
       RABBITMQ_PASSWORD: guest
-
     restart: unless-stopped
     depends_on:
       - rabbitmq
       - mqtt-broker
       - sss-auth-acl-service
     networks:
-      - infrastructure-network
+      - app-network
+    deploy:
+      placement:
+        constraints:
+          - "node.hostname == u24serv-cac"
 
   sss-telemetry-storage-service:
     image: 192.168.152.117:5000/quangdung/sss-telemetry-storage-service:1.0.0-SNAPSHOT
-    container_name: sss-telemetry-storage-service
     networks:
-      - infrastructure-network
-      - services-network
+      - app-network
     depends_on:
       - rabbitmq
       - influxdb
@@ -300,36 +291,70 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       DEVICE_INFO_API_URL: http://sss-auth-acl-service:2001/
-      INFLUX_URL: http://localhost:8086
-      INFLUX_TOKEN: my-super-secret-auth-token
-      INFLUX_ORG: my-org
-      INFLUX_BUCKET: my-bucket
-
+      INFLUX_URL: http://influxdb:8086
+      INFLUX_TOKEN: my-super-secret-token
+      INFLUX_ORG: sss-quangdung
+      INFLUX_BUCKET: telemetry-data
+    deploy:
+      placement:
+        constraints:
+          - "node.hostname == u24serv-cac"
 
 volumes:
-  emqx_data: {}
-  emqx_log: {}
-  grafana_data: {}
-  redis_data: {}    
-  rabbitmq_data: {}  
-  influxdb_data: {}
-
-  postgres_data_auth_acl_service: {}
-
-  device-service-db-data: {}
+  emqx_data:
+    driver: local
+    labels:
+      - "created-by=swarm-stack"
+  emqx_log:
+    driver: local
+    labels:
+      - "created-by=swarm-stack"
+  grafana_data:
+    driver: local
+    labels:
+      - "created-by=swarm-stack"
+  redis_data:
+    driver: local
+    labels:
+      - "created-by=swarm-stack"
+  rabbitmq_data:
+    driver: local
+    labels:
+      - "created-by=swarm-stack"
+  influxdb_data:
+    driver: local
+    labels:
+      - "created-by=swarm-stack"
+  postgres_data_auth_acl_service:
+    driver: local
+    labels:
+      - "created-by=swarm-stack"
+  device-service-db-data:
+    driver: local
+    labels:
+      - "created-by=swarm-stack"
 
 networks:
-  shared-network:
-    driver: bridge
-  infrastructure-network: 
-    driver: bridge
-  services-network: 
-    driver: bridge
-
-  auth-acl-private-network:  
-    driver: bridge
-    internal: false
-  
+  app-network:
+    driver: overlay
+    attachable: true
+    labels:
+      - "created-by=swarm-stack"
+  auth-acl-private-network:
+    driver: overlay
+    attachable: true
+    labels:
+      - "created-by=swarm-stack"
   device-service-private-network:
-    driver: bridge
-    internal: false
+    driver: overlay
+    attachable: true
+    labels:
+      - "created-by=swarm-stack"
+
+configs:
+  traefik_config:
+    external: true
+  prometheus_config:
+    external: true
+  emqx_config:
+    external: true

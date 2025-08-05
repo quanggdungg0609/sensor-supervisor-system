@@ -181,12 +181,14 @@ build_image() {
     # Build with Quarkus container image extension
     if [ -f "./mvnw" ]; then
         ./mvnw package -Dquarkus.container-image.build=true \
+            -Dquarkus.docker.buildx.platform=linux/amd64 \
             -Dquarkus.container-image.group=${IMAGE_GROUP} \
             -Dquarkus.container-image.name=${IMAGE_NAME} \
             -Dquarkus.container-image.tag=${version} \
             -DskipTests
     else
         mvn package -Dquarkus.container-image.build=true \
+            -Dquarkus.docker.buildx.platform=linux/amd64 \
             -Dquarkus.container-image.group=${IMAGE_GROUP} \
             -Dquarkus.container-image.name=${IMAGE_NAME} \
             -Dquarkus.container-image.tag=${version} \
