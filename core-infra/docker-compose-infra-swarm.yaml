@@ -193,6 +193,10 @@ services:
       - auth-acl-db
       - sss-device-service
     deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 5
       placement:
         constraints:
           - "node.hostname == u24serv-cac"
@@ -215,6 +219,10 @@ services:
       retries: 5
       start_period: 10s
     deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 5
       placement:
         constraints:
           - "node.hostname == u24serv-db"
@@ -251,7 +259,7 @@ services:
           - "node.hostname == u24serv-cac"
 
   sss-data-ingestor-serivce:
-    image: 192.168.152.117:5000/quangdung/sss-data-ingestor-service:1.0.0-SNAPSHOT-native
+    image: 192.168.152.117:5000/quangdung/sss-data-ingestor-service:latest
     environment:
       MQTT_HOST: mqtt-broker
       MQTT_PORT: 1883
@@ -270,12 +278,16 @@ services:
     networks:
       - app-network
     deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 5
       placement:
         constraints:
           - "node.hostname == u24serv-cac"
 
   sss-telemetry-storage-service:
-    image: 192.168.152.117:5000/quangdung/sss-telemetry-storage-service:1.0.0-SNAPSHOT
+    image: 192.168.152.117:5000/quangdung/sss-telemetry-storage-service:latest
     networks:
       - app-network
     depends_on:
@@ -296,6 +308,10 @@ services:
       INFLUX_ORG: sss-quangdung
       INFLUX_BUCKET: telemetry-data
     deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 5
       placement:
         constraints:
           - "node.hostname == u24serv-cac"

@@ -13,17 +13,28 @@
 #
 # docker run -i --rm -p 8080:8080 quarkus/sss-data-ingestor-service
 #
-# The ` registry.access.redhat.com/ubi9/ubi-minimal:9.5` base image is based on UBI 9.
-# To use UBI 8, switch to `quay.io/ubi8/ubi-minimal:8.10`.
 ###
-FROM registry.access.redhat.com/ubi9/ubi-minimal:9.5
-WORKDIR /work/
-RUN chown 1001 /work \
-    && chmod "g+rwX" /work \
-    && chown 1001:root /work
-COPY --chown=1001:root --chmod=0755 target/*-runner /work/application
+FROM eclipse-temurin:17-jre
+
+ENV LANGUAGE='en_US:en'
+
+# Install required packages if needed
+RUN apt-get update && apt-get install -y \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create application user
+RUN groupadd -r quarkus && useradd -r -g quarkus -u 1001 quarkus
+
+# Create deployments directory
+RUN mkdir -p /deployments && chown quarkus:quarkus /deployments
+
+WORKDIR /deployments
+
+# Copy application files
+COPY --chown=quarkus:quarkus target/*-runner /deployments/application
 
 EXPOSE 8080
-USER 1001
+USER quarkus
 
 ENTRYPOINT ["./application", "-Dquarkus.http.host=0.0.0.0"]

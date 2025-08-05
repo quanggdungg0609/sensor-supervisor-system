@@ -13,7 +13,6 @@ REGISTRY_USERNAME="${REGISTRY_USERNAME:-}"
 REGISTRY_PASSWORD="${REGISTRY_PASSWORD:-}"
 IMAGE_GROUP="${IMAGE_GROUP:-quangdung}"
 IMAGE_NAME="${IMAGE_NAME:-sss-data-ingestor-service}"
-NATIVE_BUILD="${NATIVE_BUILD:-false}"
 
 # Functions
 print_step() {
@@ -39,8 +38,7 @@ show_help() {
     echo "  --username USER         Registry username (REQUIRED)"
     echo "  --password PASS         Registry password (REQUIRED)"
     echo "  --group GROUP           Image group/namespace (default: quangdung)"
-    echo "  --name NAME             Image name (default: sss-data-ingestor-service)"
-    echo "  --native                Build native image (requires GraalVM)"
+    echo "  --name NAME             Image name (default: sss-auth-and-acl-service)"
     echo "  --no-push               Build image but don't push to registry"
     echo "  --no-compose-update     Don't update docker-compose.yaml"
     echo "  --help                  Show this help message"
@@ -51,17 +49,19 @@ show_help() {
     echo "  REGISTRY_PASSWORD       Registry password"
     echo "  IMAGE_GROUP             Image group/namespace (optional)"
     echo "  IMAGE_NAME              Image name (optional)"
-    echo "  NATIVE_BUILD            Build native image (true/false, optional)"
     echo ""
     echo "Examples:"
-    echo "  # Build JVM image"
-    echo "  $0 --registry your-registry.com --username user --password pass"
+    echo "  # Using environment variables"
+    echo "  export REGISTRY_URL=your-registry.com"
+    echo "  export REGISTRY_USERNAME=your-username"
+    echo "  export REGISTRY_PASSWORD=your-password"
+    echo "  $0"
     echo ""
-    echo "  # Build native image"
-    echo "  $0 --native --registry your-registry.com --username user --password pass"
+    echo "  # Using command line arguments"
+    echo "  $0 --registry your-registry.com --username your-user --password your-pass"
     echo ""
-    echo "  # Build native image locally only"
-    echo "  $0 --native --no-push"
+    echo "  # Build only (no push) - credentials not required"
+    echo "  $0 --no-push"
 }
 
 # Validate required parameters
@@ -111,18 +111,6 @@ check_docker() {
     fi
 }
 
-# Check GraalVM for native builds
-check_graalvm() {
-    if [ "$NATIVE_BUILD" = "true" ]; then
-        if ! command -v native-image &> /dev/null; then
-            print_warning "GraalVM native-image not found. Trying container build..."
-            print_warning "Make sure Docker has enough memory (8GB+ recommended for native builds)"
-        else
-            print_success "GraalVM native-image found"
-        fi
-    fi
-}
-
 # Get project version from pom.xml
 get_version() {
     if [ -f "./mvnw" ]; then
@@ -143,6 +131,7 @@ get_version() {
 login_registry() {
     print_step "Logging into registry: $REGISTRY_URL"
     
+    # Use password from environment variable or command line
     echo "$REGISTRY_PASSWORD" | docker login "$REGISTRY_URL" -u "$REGISTRY_USERNAME" --password-stdin
     
     if [ $? -ne 0 ]; then
@@ -165,17 +154,8 @@ logout_registry() {
 
 # Build application
 build_app() {
-    if [ "$NATIVE_BUILD" = "true" ]; then
-        print_step "Building native application (this may take 5-10 minutes)..."
-        build_native_app
-    else
-        print_step "Building JVM application..."
-        build_jvm_app
-    fi
-}
-
-# Build JVM application
-build_jvm_app() {
+    print_step "Building application..."
+    
     if [ -f "./mvnw" ]; then
         ./mvnw clean package -DskipTests
     else
@@ -183,31 +163,11 @@ build_jvm_app() {
     fi
     
     if [ $? -ne 0 ]; then
-        print_error "JVM application build failed!"
+        print_error "Application build failed!"
         exit 1
     fi
     
-    print_success "JVM application built successfully"
-}
-
-# Build native application
-build_native_app() {
-    if [ -f "./mvnw" ]; then
-        ./mvnw clean package -Dnative -DskipTests -Dquarkus.native.container-build=true -Dquarkus.docker.buildx.platform=linux/amd64 
-    else
-        mvn clean package -Dnative -DskipTests -Dquarkus.native.container-build=true -Dquarkus.docker.buildx.platform=linux/amd64 
-    fi
-    
-    if [ $? -ne 0 ]; then
-        print_error "Native application build failed!"
-        print_error "Make sure you have:"
-        echo "  1. GraalVM installed OR Docker with enough memory (8GB+)"
-        echo "  2. Native build dependencies installed"
-        echo "  3. Sufficient disk space for native compilation"
-        exit 1
-    fi
-    
-    print_success "Native application built successfully"
+    print_success "Application built successfully"
 }
 
 # Build Docker image
@@ -216,31 +176,25 @@ build_image() {
     local image_tag="${IMAGE_GROUP}/${IMAGE_NAME}:${version}"
     local latest_tag="${IMAGE_GROUP}/${IMAGE_NAME}:latest"
     
-    if [ "$NATIVE_BUILD" = "true" ]; then
-        image_tag="${image_tag}-native"
-        latest_tag="${latest_tag}-native"
-        print_step "Building native Docker image: $image_tag"
-    else
-        print_step "Building JVM Docker image: $image_tag"
-    fi
+    print_step "Building Docker image: $image_tag"
     
     # Build with Quarkus container image extension
-    local build_args="-Dquarkus.container-image.build=true"
-    build_args="$build_args -Dquarkus.container-image.group=${IMAGE_GROUP}"
-    build_args="$build_args -Dquarkus.container-image.name=${IMAGE_NAME}"
-    
-    if [ "$NATIVE_BUILD" = "true" ]; then
-        build_args="$build_args -Dquarkus.container-image.tag=${version}-native"
-        build_args="$build_args -Dnative"
-        build_args="$build_args -Dquarkus.native.container-build=true"
-    else
-        build_args="$build_args -Dquarkus.container-image.tag=${version}"
-    fi
-    
     if [ -f "./mvnw" ]; then
-        ./mvnw package $build_args -DskipTests
+        ./mvnw package -Dquarkus.container-image.build=true \
+            -Dquarkus.package.type=uber-jar \
+            -Dquarkus.docker.buildx.platform=linux/amd64 \
+            -Dquarkus.container-image.group=${IMAGE_GROUP} \
+            -Dquarkus.container-image.name=${IMAGE_NAME} \
+            -Dquarkus.container-image.tag=${version} \
+            -DskipTests
     else
-        mvn package $build_args -DskipTests
+        mvn package -Dquarkus.container-image.build=true \
+            -Dquarkus.package.type=uber-jar \
+            -Dquarkus.docker.buildx.platform=linux/amd64 \
+            -Dquarkus.container-image.group=${IMAGE_GROUP} \
+            -Dquarkus.container-image.name=${IMAGE_NAME} \
+            -Dquarkus.container-image.tag=${version} \
+            -DskipTests
     fi
     
     if [ $? -ne 0 ]; then
@@ -260,11 +214,6 @@ push_image() {
     local version=$1
     local image_tag="${IMAGE_GROUP}/${IMAGE_NAME}:${version}"
     local latest_tag="${IMAGE_GROUP}/${IMAGE_NAME}:latest"
-    
-    if [ "$NATIVE_BUILD" = "true" ]; then
-        image_tag="${image_tag}-native"
-        latest_tag="${latest_tag}-native"
-    fi
     
     # Add registry prefix
     local registry_image_tag="${REGISTRY_URL}/${image_tag}"
@@ -298,10 +247,6 @@ update_compose() {
     local version=$1
     local image_tag="${REGISTRY_URL}/${IMAGE_GROUP}/${IMAGE_NAME}:${version}"
     
-    if [ "$NATIVE_BUILD" = "true" ]; then
-        image_tag="${image_tag}-native"
-    fi
-    
     if [ -f "docker-compose.yaml" ]; then
         print_step "Updating docker-compose.yaml with version: $version"
         
@@ -320,7 +265,7 @@ update_compose() {
 
 # Main execution
 main() {
-    echo "=== Data Ingestor Service - Docker Image Build and Push Script ==="
+    echo "=== Docker Image Build and Push Script ==="
     echo
     
     # Parse arguments
@@ -348,10 +293,6 @@ main() {
             --name)
                 IMAGE_NAME="$2"
                 shift 2
-                ;;
-            --native)
-                NATIVE_BUILD="true"
-                shift
                 ;;
             --no-push)
                 PUSH_IMAGE=false
@@ -391,13 +332,11 @@ main() {
     fi
     echo "  Image Group: $IMAGE_GROUP"
     echo "  Image Name: $IMAGE_NAME"
-    echo "  Native Build: $NATIVE_BUILD"
     echo
     
     # Pre-flight checks
     check_maven
     check_docker
-    check_graalvm
     
     # Get version
     VERSION=$(get_version)
@@ -429,21 +368,11 @@ main() {
     print_success "Build and push completed successfully!"
     
     if [ "$PUSH_IMAGE" = true ]; then
-        if [ "$NATIVE_BUILD" = "true" ]; then
-            echo "Native Image: ${REGISTRY_URL}/${IMAGE_GROUP}/${IMAGE_NAME}:${VERSION}-native"
-            echo "Native Latest: ${REGISTRY_URL}/${IMAGE_GROUP}/${IMAGE_NAME}:latest-native"
-        else
-            echo "JVM Image: ${REGISTRY_URL}/${IMAGE_GROUP}/${IMAGE_NAME}:${VERSION}"
-            echo "JVM Latest: ${REGISTRY_URL}/${IMAGE_GROUP}/${IMAGE_NAME}:latest"
-        fi
+        echo "Image: ${REGISTRY_URL}/${IMAGE_GROUP}/${IMAGE_NAME}:${VERSION}"
+        echo "Latest: ${REGISTRY_URL}/${IMAGE_GROUP}/${IMAGE_NAME}:latest"
     else
-        if [ "$NATIVE_BUILD" = "true" ]; then
-            echo "Local Native Image: ${IMAGE_GROUP}/${IMAGE_NAME}:${VERSION}-native"
-            echo "Local Native Latest: ${IMAGE_GROUP}/${IMAGE_NAME}:latest-native"
-        else
-            echo "Local JVM Image: ${IMAGE_GROUP}/${IMAGE_NAME}:${VERSION}"
-            echo "Local JVM Latest: ${IMAGE_GROUP}/${IMAGE_NAME}:latest"
-        fi
+        echo "Local Image: ${IMAGE_GROUP}/${IMAGE_NAME}:${VERSION}"
+        echo "Local Latest: ${IMAGE_GROUP}/${IMAGE_NAME}:latest"
     fi
 }
 
