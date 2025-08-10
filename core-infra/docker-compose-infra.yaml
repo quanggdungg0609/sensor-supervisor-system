@@ -257,7 +257,7 @@ services:
       - "traefik.http.middlewares.strip-device-prefix.stripprefix.prefixes=/devices-service"
 
   sss-data-ingestor-serivce:
-    image: 192.168.152.117:5000/quangdung/sss-data-ingestor-service:1.0.0-SNAPSHOT-native
+    image: 192.168.152.117:5000/quangdung/sss-data-ingestor-service:latest
     container_name: sss-data-ingestor-serivce
     environment:
       # MQTT Config
@@ -282,7 +282,7 @@ services:
       - infrastructure-network
 
   sss-telemetry-storage-service:
-    image: 192.168.152.117:5000/quangdung/sss-telemetry-storage-service:1.0.0-SNAPSHOT
+    image: 192.168.152.117:5000/quangdung/sss-telemetry-storage-service:latest
     container_name: sss-telemetry-storage-service
     networks:
       - infrastructure-network
@@ -297,13 +297,12 @@ services:
       RABBITMQ_PORT: 5672
       RABBITMQ_USER: guest
       RABBITMQ_PASSWORD: guest
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
+      REDIS_URL: redis://redis:6379
       DEVICE_INFO_API_URL: http://sss-auth-acl-service:2001/
-      INFLUX_URL: http://localhost:8086
-      INFLUX_TOKEN: my-super-secret-auth-token
-      INFLUX_ORG: my-org
-      INFLUX_BUCKET: my-bucket
+      INFLUXDB_URL: http://influxdb:8086
+      INFLUXDB_TOKEN: my-super-secret-token      
+      INFLUXDB_ORG: sss-quangdung         
+      INFLUXDB_BUCKET: telemetry-data 
 
 
 volumes:

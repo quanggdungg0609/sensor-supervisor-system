@@ -43,30 +43,69 @@ public class TelemetryHandler extends MessageHandler {
 
     @Override
     public Uni<Void> handle(MqttMessage<byte[]> message) {
+        String data = new String(message.getPayload());
+        String clientId = this.getClientId(message);
+        
+        // Log all received messages
+        log.infof("Received telemetry message from client: %s, topic: %s, payload: %s", 
+                 clientId, message.getTopic(), data);
+        
         Map<String, Object> payloadMap;
         try {
-            String data = new String(message.getPayload());
             payloadMap = objectMapper.readValue(data, new TypeReference<>() {});
         } catch (Exception e) {
             log.error("Failed to parse telemetry payload for topic: " + message.getTopic(), e);
             return Uni.createFrom().failure(e);
         }
-        String clientId = this.getClientId(message);
+        
         Map<String, Object> dataMap = (Map<String, Object>) payloadMap.get("data");
-        String timestampStr = (String) payloadMap.get("timestamp");
-
+        
+        // Fix: Handle both String and Integer timestamp formats
+        Object timestampObj = payloadMap.get("timestamp");
+        LocalDateTime timestamp;
+        
+        try {
+            if (timestampObj instanceof String) {
+                // Handle ISO string format: "2024-01-15T10:30:00Z"
+                timestamp = LocalDateTime.ofInstant(Instant.parse((String) timestampObj), ZoneOffset.UTC);
+            } else if (timestampObj instanceof Integer) {
+                // Handle Unix timestamp (seconds): 1723234077
+                timestamp = LocalDateTime.ofInstant(Instant.ofEpochSecond(((Integer) timestampObj).longValue()), ZoneOffset.UTC);
+            } else if (timestampObj instanceof Long) {
+                // Handle Unix timestamp (milliseconds): 1723234077000
+                long timestampValue = (Long) timestampObj;
+                if (timestampValue > 1_000_000_000_000L) {
+                    // Milliseconds
+                    timestamp = LocalDateTime.ofInstant(Instant.ofEpochMilli(timestampValue), ZoneOffset.UTC);
+                } else {
+                    // Seconds
+                    timestamp = LocalDateTime.ofInstant(Instant.ofEpochSecond(timestampValue), ZoneOffset.UTC);
+                }
+            } else {
+                log.warn("Invalid timestamp format for client: " + clientId + ", using current time");
+                timestamp = LocalDateTime.now(ZoneOffset.UTC);
+            }
+        } catch (Exception e) {
+            log.error("Failed to parse timestamp for client: " + clientId + ", using current time", e);
+            timestamp = LocalDateTime.now(ZoneOffset.UTC);
+        }
+    
         if (dataMap == null || dataMap.isEmpty()) {
             log.warn("Empty or null data map for client: " + clientId);
             return Uni.createFrom().voidItem();
         }
-
-        DeviceDataModel data = DeviceDataModel.builder()
+        
+        log.infof("Processing telemetry for client: %s, data size: %d, timestamp: %s", 
+                 clientId, dataMap.size(), timestamp);
+    
+        DeviceDataModel deviceData = DeviceDataModel.builder()
             .clientId(clientId)
             .data(dataMap)
-            .timestamp(LocalDateTime.ofInstant(Instant.parse(timestampStr), ZoneOffset.UTC))
+            .timestamp(timestamp)
             .build();
-        return rabbitMqMessageProducer.publishDeviceDataUpdate(data)
-            .onItem().invoke(() -> log.info("Device data update sent for client: " + clientId))
-            .onFailure().invoke(throwable -> log.error(throwable));
+            
+        return rabbitMqMessageProducer.publishDeviceDataUpdate(deviceData)
+            .onItem().invoke(() -> log.infof("Device data update sent for client: %s", clientId))
+            .onFailure().invoke(throwable -> log.errorf(throwable, "Failed to send device data update for client: %s", clientId));
     }
 }

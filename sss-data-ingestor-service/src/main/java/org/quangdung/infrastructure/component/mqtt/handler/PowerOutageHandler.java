@@ -44,16 +44,21 @@ public class PowerOutageHandler extends MessageHandler {
      */
     @Override
     public Uni<Void> handle(MqttMessage<byte[]> message) {
+        String data = new String(message.getPayload());
+        String clientId = this.getClientId(message);
+        
+        // Log all received messages
+        log.infof("Received power outage message from client: %s, topic: %s, payload: %s", 
+                 clientId, message.getTopic(), data);
+        
         Map<String, Object> payloadMap;
         try {
-            String data = new String(message.getPayload());
             payloadMap = objectMapper.readValue(data, new TypeReference<>() {});
         } catch (Exception e) {
             log.error("Failed to parse power outage payload for topic: " + message.getTopic(), e);
             return Uni.createFrom().failure(e);
         }
 
-        String clientId = this.getClientId(message);
         Map<String, Object> dataMap = (Map<String, Object>) payloadMap.get("data");
         String timestampStr = (String) payloadMap.get("timestamp");
 
@@ -64,9 +69,15 @@ public class PowerOutageHandler extends MessageHandler {
 
         LocalDateTime timestamp = LocalDateTime.parse(timestampStr);
 
+        // Giữ nguyên Integer (0 hoặc 1) thay vì chuyển thành String
+        Integer powerStatus = (Integer) dataMap.get("power_status");
+        
+        log.infof("Processing power outage for client: %s, status: %d, timestamp: %s", 
+                 clientId, powerStatus, timestamp);
+    
         DevicePowerOutageModel devicePowerOutageModel = DevicePowerOutageModel.builder()
             .clientId(clientId)
-            .powerStatus((String) dataMap.get("power_status"))
+            .powerStatus(powerStatus) // Gửi Integer (0 hoặc 1)
             .timestamp(timestamp)
             .build();
             

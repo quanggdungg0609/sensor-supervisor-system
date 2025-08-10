@@ -16,3 +16,4 @@ dependencies:
   #   public: true
   bblanchon/arduinojson: '*'
   esp-idf-lib/max31865: '*'
+  espressif/sht3x: ^0.2.0

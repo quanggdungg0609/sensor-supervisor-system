@@ -11,6 +11,6 @@ import lombok.Data;
 @RegisterForReflection
 public class DevicePowerOutageModel {
     private String clientId;
-    private String powerStatus;
+    private Integer powerStatus; 
     private LocalDateTime timestamp;
 }

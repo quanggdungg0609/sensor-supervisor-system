@@ -2,81 +2,104 @@
 #include "ntp_client.hpp"
 #include "ArduinoJson.h"
 #include "esp_log.h"
-#include "driver/spi_master.h"
-#include "driver/gpio.h" 
 #include <cmath>
-
-#define SENSOR_SPI_HOST    SPI2_HOST 
-
-#define PIN_NUM_MISO    GPIO_NUM_19
-#define PIN_NUM_MOSI    GPIO_NUM_23
-#define PIN_NUM_CLK     GPIO_NUM_18
-#define PIN_NUM_CS      GPIO_NUM_5
-
-#define R_REF           430.0
-#define RTD_NOMINAL     100.0
-#define RTD_STANDARD    MAX31865_ITS90
 
 static const char* TAG = "SENSOR_MANAGER";
 
-
+/**
+ * @brief Initialize all sensors in the system
+ * @return true if all sensors initialized successfully, false otherwise
+ */
 bool SensorManager::init() {
-    spi_bus_config_t buscfg = {
-        .mosi_io_num = PIN_NUM_MOSI,
-        .miso_io_num = PIN_NUM_MISO,
-        .sclk_io_num = PIN_NUM_CLK,
-        .quadwp_io_num = -1,
-        .quadhd_io_num = -1,
-    };
-    ESP_ERROR_CHECK(spi_bus_initialize(SENSOR_SPI_HOST, &buscfg, SPI_DMA_CH_AUTO));
-
-    dev.standard = RTD_STANDARD;
-    dev.r_ref = R_REF;
-    dev.rtd_nominal = RTD_NOMINAL;
-    ESP_ERROR_CHECK(max31865_init_desc(&dev, SENSOR_SPI_HOST, 1000000, PIN_NUM_CS));
-
-    max31865_config_t config;
-    config.mode = MAX31865_MODE_SINGLE;
-    config.v_bias = true;
-    config.connection = MAX31865_2WIRE;
-    config.filter = MAX31865_FILTER_50HZ;
-    ESP_ERROR_CHECK(max31865_set_config(&dev, &config));
-
-    ESP_LOGI(TAG, "MAX31865 sensor initialized successfully.");
+    ESP_LOGI(TAG, "Initializing sensor manager...");
+    
+    // Initialize SHT30 sensor with default pins (SDA=21, SCL=22)
+    esp_err_t ret = sht30Sensor.init();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize SHT30 sensor: %s", esp_err_to_name(ret));
+        return false;
+    }
+    
+    // Initialize Power Outage Detector
+    ret = powerOutageDetector.init();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize power outage detector: %s", esp_err_to_name(ret));
+        return false;
+    }
+    
+    ESP_LOGI(TAG, "Sensor manager initialized successfully with SHT30 and Power Outage Detector");
     return true;
 }
 
+/**
+ * @brief Get aggregated sensor data in JSON format
+ * @return JSON string containing sensor data with timestamp
+ */
 std::string SensorManager::getAggregatedDataJson() {
     JsonDocument doc;
     doc["timestamp"] = NTPClient::getInstance().getFormattedTimestamp();
     
     JsonObject data = doc["data"].to<JsonObject>();
-    data["temp"] = getTemperature();
+    data["temperature"] = getTemperature();
+    data["humidity"] = getHumidity();
+    data["power_status"] = getPowerStatus();  // Add power status field
     
-    std::string output;
-    serializeJson(doc, output);
-    return output;
+    std::string jsonString;
+    serializeJson(doc, jsonString);
+    return jsonString;
 }
 
+/**
+ * @brief Get power outage status for emergency alerts
+ * @return JSON string with power status only
+ */
+std::string SensorManager::getPowerOutageJson() {
+    JsonDocument doc;
+    doc["timestamp"] = NTPClient::getInstance().getFormattedTimestamp();
+    
+    JsonObject data = doc["data"].to<JsonObject>();
+    data["power_status"] = getPowerStatus();
+    
+    std::string jsonString;
+    serializeJson(doc, jsonString);
+    return jsonString;
+}
+
+/**
+ * @brief Get temperature from SHT30 sensor
+ * @return Temperature in Celsius, NAN if error
+ */
 float SensorManager::getTemperature() {
-    float temp;
-    esp_err_t err = max31865_measure(&dev, &temp);
-
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to measure temperature: %s", esp_err_to_name(err));
-        
-        uint8_t fault;
-        if (max31865_get_fault_status(&dev, &fault) == ESP_OK) {
-            ESP_LOGE(TAG, "Detailed fault status: 0x%02x", fault);
-        }
-
-        return NAN;
-    }
-
-    ESP_LOGI(TAG, "Temperature read: %.2f *C", temp);
-    return temp;
+    return sht30Sensor.getTemperature();
 }
 
+/**
+ * @brief Get humidity from SHT30 sensor
+ * @return Humidity percentage, NAN if error
+ */
 float SensorManager::getHumidity() {
-    return NAN;
+    return sht30Sensor.getHumidity();
+}
+
+/**
+ * @brief Get power status from power outage detector
+ * @return 1 if power available, 0 if power outage
+ */
+int SensorManager::getPowerStatus() {
+    return powerOutageDetector.getPowerStatus();
+}
+
+/**
+ * @brief Configure power outage wake-up for deep sleep
+ */
+void SensorManager::configurePowerOutageWakeUp() {
+    powerOutageDetector.configureWakeUp();
+}
+
+/**
+ * @brief Disable power outage wake-up configuration
+ * @return ESP_OK on success, error code otherwise
+ */
+esp_err_t SensorManager::disablePowerOutageWakeUp() {
+    return powerOutageDetector.disableWakeUp();
 }

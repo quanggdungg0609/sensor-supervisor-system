@@ -142,6 +142,37 @@ esp_err_t ConfigurationMode::get_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
+/**
+ * @brief URL decode a string (convert %XX to actual characters)
+ * @param src Source string to decode
+ * @param dst Destination buffer for decoded string
+ * @param dst_size Size of destination buffer
+ */
+void ConfigurationMode::url_decode(const char* src, char* dst, size_t dst_size) {
+    size_t src_len = strlen(src);
+    size_t dst_idx = 0;
+    
+    for (size_t i = 0; i < src_len && dst_idx < dst_size - 1; i++) {
+        if (src[i] == '%' && i + 2 < src_len) {
+            // Convert hex to char
+            char hex[3] = {src[i+1], src[i+2], '\0'};
+            char* endptr;
+            long val = strtol(hex, &endptr, 16);
+            if (*endptr == '\0') {
+                dst[dst_idx++] = (char)val;
+                i += 2; // Skip the hex digits
+            } else {
+                dst[dst_idx++] = src[i]; // Keep original if not valid hex
+            }
+        } else if (src[i] == '+') {
+            dst[dst_idx++] = ' '; // Convert + to space
+        } else {
+            dst[dst_idx++] = src[i];
+        }
+    }
+    dst[dst_idx] = '\0';
+}
+
 esp_err_t ConfigurationMode::post_save_handler(httpd_req_t *req) {
     std::vector<char> buf(req->content_len + 1);
     int ret = httpd_req_recv(req, buf.data(), req->content_len);
@@ -151,12 +182,12 @@ esp_err_t ConfigurationMode::post_save_handler(httpd_req_t *req) {
     app_config_t cfg = {}; // Initialize struct with zeros
     char port_str[6] = "1883";
 
-    // Helper lambda to safely copy form values
+    // Helper lambda to safely copy and URL decode form values
     auto get_val = [&](const char* key, char* dest, size_t max_len) {
         char val[128];
         if (httpd_query_key_value(buf.data(), key, val, sizeof(val)) == ESP_OK) {
-            strncpy(dest, val, max_len - 1);
-            dest[max_len - 1] = '\0';
+            // URL decode the value before copying
+            url_decode(val, dest, max_len);
         }
     };
     

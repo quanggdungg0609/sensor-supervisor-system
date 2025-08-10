@@ -300,13 +300,12 @@ services:
       RABBITMQ_PORT: 5672
       RABBITMQ_USER: guest
       RABBITMQ_PASSWORD: guest
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
+      REDIS_URL: redis://redis:6379
       DEVICE_INFO_API_URL: http://sss-auth-acl-service:2001/
-      INFLUX_URL: http://influxdb:8086
-      INFLUX_TOKEN: my-super-secret-token
-      INFLUX_ORG: sss-quangdung
-      INFLUX_BUCKET: telemetry-data
+      INFLUXDB_URL: http://influxdb:8086
+      INFLUXDB_TOKEN: my-super-secret-token
+      INFLUXDB_ORG: sss-quangdung
+      INFLUXDB_BUCKET: telemetry-data
     deploy:
       restart_policy:
         condition: on-failure

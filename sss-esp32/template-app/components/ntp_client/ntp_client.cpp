@@ -33,6 +33,10 @@ void NTPClient::initialize() {
     }
 }
 
+/**
+ * @brief Get formatted timestamp in ISO 8601 format without timezone indicator
+ * @return Formatted timestamp string in format "YYYY-MM-DDTHH:MM:SS"
+ */
 std::string NTPClient::getFormattedTimestamp() {
     time_t now;
     char strftime_buf[64];
@@ -41,6 +45,6 @@ std::string NTPClient::getFormattedTimestamp() {
     time(&now);
     localtime_r(&now, &timeinfo);
 
-    strftime(strftime_buf, sizeof(strftime_buf), "%Y-%m-%dT%H:%M:%SZ", &timeinfo);
+    strftime(strftime_buf, sizeof(strftime_buf), "%Y-%m-%dT%H:%M:%S", &timeinfo);
     return std::string(strftime_buf);
 }

@@ -7,4 +7,5 @@ idf_component_register(SRCS "normal_mode.cpp"
                         esp_event
                         sensor_manager
                         mqtt
+                        nvs_flash
 )
