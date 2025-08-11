@@ -45,6 +45,33 @@ fi
 docker config create emqx_config emqx/etc/emqx.conf
 echo "EMQX config created"
 
+# Create Grafana provisioning configs
+echo "Creating Grafana provisioning configs..."
+
+# Datasources config
+if docker config ls | grep -q "grafana_datasources_config"; then
+    echo "grafana_datasources_config already exists, removing and recreating..."
+    docker config rm grafana_datasources_config || true
+fi
+docker config create grafana_datasources_config grafana-provisioning/datasources/datasource.yml
+echo "Grafana datasources config created"
+
+# Dashboards config
+if docker config ls | grep -q "grafana_dashboards_config"; then
+    echo "grafana_dashboards_config already exists, removing and recreating..."
+    docker config rm grafana_dashboards_config || true
+fi
+docker config create grafana_dashboards_config grafana-provisioning/dashboards/dashboard.yml
+echo "Grafana dashboards config created"
+
+# Dashboard JSON
+if docker config ls | grep -q "grafana_dashboard_json"; then
+    echo "grafana_dashboard_json already exists, removing and recreating..."
+    docker config rm grafana_dashboard_json || true
+fi
+docker config create grafana_dashboard_json grafana-provisioning/dashboards/client-dashboard.json
+echo "Grafana dashboard JSON created"
+
 # Check created configs
 echo "Docker configs list:"
 docker config ls

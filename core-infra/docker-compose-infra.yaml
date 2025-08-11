@@ -1,20 +1,21 @@
+version: "3.8"
+
 services:
   traefik:
     image: traefik:v2.10
     container_name: traefik
     restart: always
     ports:
-      - "80:80"       # The HTTP port
-      - "443:443"     # The HTTPS port
-      - "5050:8080"   # The dashboard port
-      - "1883:1883"   # The MQTT/TCP port for clients to connect to <--- CHANGED
+      - "80:80"
+      - "443:443"
+      - "5050:8080"
+      - "1883:1883"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./traefik.yml:/etc/traefik/traefik.yml:ro # Static config file
+      - ./traefik.yml:/etc/traefik/traefik.yml:ro
     networks:
       - infrastructure-network
     labels:
-      # Dashboard labels (unchanged)
       - "traefik.enable=true"
       - "traefik.http.routers.dashboard.rule=Host(`traefik.localhost`)"
       - "traefik.http.routers.dashboard.service=api@internal"
@@ -23,26 +24,25 @@ services:
 
   mqtt-broker:
     image: emqx/emqx:5.3.0
-    container_name: shared-emqx-broker 
+    container_name: shared-emqx-broker
     ports:
-      - "8883:8883"      # MQTT/SSL
-      - "8083:8083"      # MQTT/WS
-      - "8084:8084"      # MQTT/WSS
-      - "18083:18083"    # Dashboard
+      - "8883:8883"
+      - "8083:8083"
+      - "8084:8084"
+      - "18083:18083"
     volumes:
       - ./emqx/etc/emqx.conf:/opt/emqx/etc/emqx.conf:ro
       - emqx_data:/opt/emqx/data
       - emqx_log:/opt/emqx/log
     restart: unless-stopped
     networks:
-      - infrastructure-network 
+      - infrastructure-network
     labels:
-      # --- ADDED: Labels for Traefik to route TCP traffic ---
       - "traefik.enable=true"
       - "traefik.tcp.routers.emqx-mqtt.entrypoints=mqtt"
       - "traefik.tcp.routers.emqx-mqtt.rule=HostSNI(`*`)"
       - "traefik.tcp.routers.emqx-mqtt.service=emqx-mqtt-svc"
-      - "traefik.tcp.services.emqx-mqtt-svc.loadbalancer.server.port=1883" 
+      - "traefik.tcp.services.emqx-mqtt-svc.loadbalancer.server.port=1883"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     healthcheck:
@@ -52,13 +52,75 @@ services:
       retries: 5
       start_period: 10s
 
+  # --- CENTRALIZED LOGGING STACK (ELK + Filebeat) ---
+  elasticsearch:
+    image: docker.io/elastic/elasticsearch:8.14.1
+    container_name: elasticsearch
+    environment:
+      - "discovery.type=single-node"
+      - "xpack.security.enabled=false"
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+    networks:
+      - infrastructure-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  logstash:
+    image: docker.io/elastic/logstash:8.14.1
+    container_name: logstash
+    volumes:
+      - ./logstash.conf:/usr/share/logstash/pipeline/logstash.conf:ro
+    ports:
+      - "5044:5044"
+      - "9600:9600"
+    networks:
+      - infrastructure-network
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+
+  kibana:
+    image: docker.io/elastic/kibana:8.14.1
+    container_name: kibana
+    ports:
+      - "5601:5601"
+    networks:
+      - infrastructure-network
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.14.1
+    container_name: filebeat
+    user: root
+    volumes:
+      - ./test.log:/tmp/test.log:ro
+
+
+      - ./filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    networks:
+      - infrastructure-network
+    depends_on:
+      - logstash
+  # --- END OF LOGGING STACK ---
+
   redis:
-    image: redis:7-alpine 
+    image: redis:7-alpine
     container_name: shared-redis
     ports:
-      - "6379:6379" 
+      - "6379:6379"
     volumes:
-      - redis_data:/data 
+      - redis_data:/data
     restart: unless-stopped
     networks:
       - infrastructure-network
@@ -70,16 +132,16 @@ services:
       start_period: 5s
 
   rabbitmq:
-    image: rabbitmq:3.12-management-alpine 
+    image: rabbitmq:3.12-management-alpine
     container_name: shared-rabbitmq
     ports:
-      - "5672:5672"      
-      - "15672:15672"    
+      - "5672:5672"
+      - "15672:15672"
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
     volumes:
-      - rabbitmq_data:/var/lib/rabbitmq 
+      - rabbitmq_data:/var/lib/rabbitmq
     restart: unless-stopped
     networks:
       - infrastructure-network
@@ -90,46 +152,45 @@ services:
       retries: 5
       start_period: 10s
 
-
   prometheus:
     image: prom/prometheus:latest
-    container_name: shared-prometheus-server 
+    container_name: shared-prometheus-server
     ports:
       - "9090:9090"
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
     networks:
       - infrastructure-network
-    
+
   grafana:
     image: grafana/grafana:latest
-    container_name: shared-grafana-dashboard 
+    container_name: shared-grafana-dashboard
     ports:
       - "3000:3000"
     environment:
       GF_SECURITY_ADMIN_PASSWORD: admin
     volumes:
       - grafana_data:/var/lib/grafana
+      - ./grafana-provisioning:/etc/grafana/provisioning
     networks:
       - infrastructure-network
     depends_on:
-      - prometheus 
+      - prometheus
 
-   # InfluxDB Time Series Database
   influxdb:
-    image: influxdb:2.7-alpine 
+    image: influxdb:2.7-alpine
     container_name: shared-telemetry-influxdb
     ports:
-      - "8086:8086" 
+      - "8086:8086"
     environment:
       DOCKER_INFLUXDB_INIT_MODE: setup
-      DOCKER_INFLUXDB_INIT_USERNAME: admin 
-      DOCKER_INFLUXDB_INIT_PASSWORD: password 
-      DOCKER_INFLUXDB_INIT_ORG: sss-quangdung 
-      DOCKER_INFLUXDB_INIT_BUCKET: telemetry-data 
-      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: my-super-secret-token 
+      DOCKER_INFLUXDB_INIT_USERNAME: admin
+      DOCKER_INFLUXDB_INIT_PASSWORD: password
+      DOCKER_INFLUXDB_INIT_ORG: sss-quangdung
+      DOCKER_INFLUXDB_INIT_BUCKET: telemetry-data
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: my-super-secret-token
     volumes:
-      - influxdb_data:/var/lib/influxdb2 
+      - influxdb_data:/var/lib/influxdb2
     restart: unless-stopped
     networks:
       - infrastructure-network
@@ -140,57 +201,44 @@ services:
       retries: 5
       start_period: 20s
 
-
-  # PostgreSQL Database for Auth ACL Service (Private Network)
   auth-acl-db:
     image: postgres:15-alpine
-    container_name: auth-acl-postgres-db 
+    container_name: auth-acl-postgres-db
     ports:
-      - "5432:5432" 
+      - "5432:5432"
     environment:
       POSTGRES_DB: auth_acl_db
       POSTGRES_USER: quarkus
       POSTGRES_PASSWORD: quarkus123
     volumes:
-      - postgres_data_auth_acl_service:/var/lib/postgresql/data 
-      - ./init-scripts:/docker-entrypoint-initdb.d 
+      - postgres_data_auth_acl_service:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
     restart: unless-stopped
     networks:
-      - auth-acl-private-network 
-    healthcheck: 
+      - auth-acl-private-network
+    healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
       timeout: 5s
       retries: 5
       start_period: 10s
 
-  # SSS Auth and ACL Service
   sss-auth-acl-service:
     image: 192.168.152.117:5000/quangdung/sss-auth-and-acl-service:latest
     container_name: sss-auth-acl-service
     environment:
-      # Service Configuration
       SERVICE_PORT: 2001
-      
-      # Database Configuration
       DB_ADDRESS: auth-acl-db:5432
       DB_USERNAME: quarkus
       DB_PASSWORD: quarkus123
-      
-      # External Service URLs 
       DEVICE_SERVICE_API_URL: http://sss-device-service:2002/
-      
-      # MQTT Configuration
       MQTT_BROKER_URL: mqtt://mqtt-broker:1883
       MQTT_ADMIN_USERNAME: admin
       MQTT_ADMIN_PASSWORD: admin123
       MQTT_ADMIN_CLIENTID: ADMINCLIENT
-      
-      # Security Configuration
       BCRYPT_SALT_ROUNDS: 12
       BCRYPT_CUSTOM_SALT: $2a$12$abcdefghijklmnopqrstuv
       APP_SECRET_KEY: your-secret-key-here-change-in-production
-      
     restart: unless-stopped
     networks:
       - infrastructure-network
@@ -199,9 +247,8 @@ services:
       - mqtt-broker
       - redis
       - auth-acl-db
-      - sss-device-service  # Thêm dependency
+      - sss-device-service
 
-  # Thêm Device Service Database
   device-service-db:
     image: postgres:15-alpine
     container_name: device-service-app-db
@@ -220,23 +267,16 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
-    
 
-  # Thêm Device Service
   sss-device-service:
     image: 192.168.152.117:5000/quangdung/sss-device-service:latest
     container_name: sss-device-service
     environment:
-      # Database Configuration
       DB_ADDRESS: device-service-db:5432
       DB_USERNAME: quarkus
       DB_PASSWORD: quarkus123
       DB_GENERATION: update
-      
-      # MQTT Configuration
       MQTT_AUTH_ACL_URL: http://sss-auth-acl-service:2001
-      
-      # RabbitMQ Configuration
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: 5672
       RABBITMQ_USER: guest
@@ -260,19 +300,15 @@ services:
     image: 192.168.152.117:5000/quangdung/sss-data-ingestor-service:latest
     container_name: sss-data-ingestor-serivce
     environment:
-      # MQTT Config
       MQTT_HOST: mqtt-broker
       MQTT_PORT: 1883
       MQTT_USER: admin
       MQTT_PASSWORD: admin123
       MQTT_CLIENT_ID: ADMINCLIENT
-
-      # RabbitMQ Config
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: 5672
       RABBITMQ_USER: guest
       RABBITMQ_PASSWORD: guest
-
     restart: unless-stopped
     depends_on:
       - rabbitmq
@@ -300,35 +336,31 @@ services:
       REDIS_URL: redis://redis:6379
       DEVICE_INFO_API_URL: http://sss-auth-acl-service:2001/
       INFLUXDB_URL: http://influxdb:8086
-      INFLUXDB_TOKEN: my-super-secret-token      
-      INFLUXDB_ORG: sss-quangdung         
-      INFLUXDB_BUCKET: telemetry-data 
-
+      INFLUXDB_TOKEN: my-super-secret-token
+      INFLUXDB_ORG: sss-quangdung
+      INFLUXDB_BUCKET: telemetry-data
 
 volumes:
   emqx_data: {}
   emqx_log: {}
   grafana_data: {}
-  redis_data: {}    
-  rabbitmq_data: {}  
+  redis_data: {}
+  rabbitmq_data: {}
   influxdb_data: {}
-
   postgres_data_auth_acl_service: {}
-
   device-service-db-data: {}
+  elasticsearch_data: {}
 
 networks:
   shared-network:
     driver: bridge
-  infrastructure-network: 
+  infrastructure-network:
     driver: bridge
-  services-network: 
+  services-network:
     driver: bridge
-
-  auth-acl-private-network:  
+  auth-acl-private-network:
     driver: bridge
     internal: false
-  
   device-service-private-network:
     driver: bridge
     internal: false

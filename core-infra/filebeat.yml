@@ -1,0 +1,14 @@
+# ./filebeat.yml
+# Alternative configuration using 'container' input type
+
+filebeat.inputs:
+- type: container
+  paths:
+    - /var/lib/docker/containers/*/*.log
+  stream: all # can be 'stdout' or 'stderr'
+
+processors:
+- add_docker_metadata: ~
+
+output.logstash:
+  hosts: ["logstash:5044"]

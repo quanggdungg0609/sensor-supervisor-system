@@ -1,0 +1,17 @@
+# apiVersion version 1 must be used for all provisioning files.
+apiVersion: 1
+
+datasources:
+  - name: InfluxDB-Telemetry  
+    type: influxdb
+    access: proxy
+    url: http://influxdb:8086   
+    isDefault: true
+    editable: true
+    jsonData:
+
+      version: Flux
+      organization: sss-quangdung         
+      defaultBucket: telemetry-data        
+    secureJsonData:
+      token: my-super-secret-token         

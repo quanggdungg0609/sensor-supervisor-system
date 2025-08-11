@@ -55,6 +55,79 @@ services:
         constraints:
           - "node.hostname == u24serv-db"
 
+  # --- ELK STACK FOR LOGGING ---
+  elasticsearch:
+    image: docker.io/elastic/elasticsearch:8.14.1
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    environment:
+      - "discovery.type=single-node"
+      - "xpack.security.enabled=false" 
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      placement:
+        constraints:
+          - "node.hostname == u24serv-db"
+
+  logstash:
+    image: docker.io/elastic/logstash:8.14.1
+    configs:
+      - source: logstash_config
+        target: /usr/share/logstash/pipeline/logstash.conf
+    ports:
+      - "12201:12201/udp"
+      - "5044:5044"
+      - "9600:9600"
+    networks:
+      - app-network
+    deploy:
+      restart_policy:
+        condition: on-failure
+      placement:
+        constraints:
+          - "node.hostname == u24serv-db"
+
+  kibana:
+    image: docker.io/elastic/kibana:8.14.1
+    ports:
+      - "5601:5601"
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5601/api/status"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      restart_policy:
+        condition: on-failure
+      placement:
+        constraints:
+          - "node.hostname == u24serv-db"
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.14.1
+    user: root 
+    configs:
+      - source: filebeat_config
+        target: /usr/share/filebeat/filebeat.yml
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    networks:
+      - app-network
+    deploy:
+      mode: global
+  # --- END OF ELK STACK ---
+
   redis:
     image: redis:7-alpine
     volumes:
@@ -112,11 +185,18 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: admin
     volumes:
       - grafana_data:/var/lib/grafana
+    configs:
+      - source: grafana_datasources_config
+        target: /etc/grafana/provisioning/datasources/datasource.yml
+      - source: grafana_dashboards_config
+        target: /etc/grafana/provisioning/dashboards/dashboard.yml
+      - source: grafana_dashboard_json
+        target: /etc/grafana/provisioning/dashboards/client-dashboard.json
     networks:
       - app-network
-    depends_on:
-      - prometheus
     deploy:
+      restart_policy:
+        condition: on-failure
       placement:
         constraints:
           - "node.hostname == u24serv-db"
@@ -187,11 +267,14 @@ services:
     networks:
       - app-network
       - auth-acl-private-network
-    depends_on:
-      - mqtt-broker
-      - redis
-      - auth-acl-db
-      - sss-device-service
+    healthcheck:
+      # Kiểm tra endpoint liveness. Cần cài curl trong image nếu chưa có.
+      # Hoặc dùng wget: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:2001/q/health/live"]
+      test: ["CMD", "curl", "-f", "http://localhost:2001/q/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s # Cho service thời gian để khởi động trước khi bắt đầu kiểm tra
     deploy:
       restart_policy:
         condition: on-failure
@@ -243,17 +326,10 @@ services:
     networks:
       - app-network
       - device-service-private-network
-    depends_on:
-      - rabbitmq
-      - device-service-db
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.device-api.rule=PathPrefix(`/devices-service`)"
-      - "traefik.http.routers.device-api.entrypoints=http"
-      - "traefik.http.services.device-api-svc.loadbalancer.server.port=2002"
-      - "traefik.http.routers.device-api.middlewares=strip-device-prefix"
-      - "traefik.http.middlewares.strip-device-prefix.stripprefix.prefixes=/devices-service"
+    # Thêm healthcheck cho service này tương tự như sss-auth-acl-service
     deploy:
+      restart_policy:
+        condition: on-failure
       placement:
         constraints:
           - "node.hostname == u24serv-cac"
@@ -271,17 +347,11 @@ services:
       RABBITMQ_USER: guest
       RABBITMQ_PASSWORD: guest
     restart: unless-stopped
-    depends_on:
-      - rabbitmq
-      - mqtt-broker
-      - sss-auth-acl-service
     networks:
       - app-network
     deploy:
       restart_policy:
         condition: on-failure
-        delay: 10s
-        max_attempts: 5
       placement:
         constraints:
           - "node.hostname == u24serv-cac"
@@ -290,10 +360,6 @@ services:
     image: 192.168.152.117:5000/quangdung/sss-telemetry-storage-service:latest
     networks:
       - app-network
-    depends_on:
-      - rabbitmq
-      - influxdb
-      - sss-data-ingestor-serivce
     restart: unless-stopped
     environment:
       RABBITMQ_HOST: rabbitmq
@@ -309,62 +375,30 @@ services:
     deploy:
       restart_policy:
         condition: on-failure
-        delay: 10s
-        max_attempts: 5
       placement:
         constraints:
           - "node.hostname == u24serv-cac"
 
 volumes:
   emqx_data:
-    driver: local
-    labels:
-      - "created-by=swarm-stack"
   emqx_log:
-    driver: local
-    labels:
-      - "created-by=swarm-stack"
   grafana_data:
-    driver: local
-    labels:
-      - "created-by=swarm-stack"
   redis_data:
-    driver: local
-    labels:
-      - "created-by=swarm-stack"
   rabbitmq_data:
-    driver: local
-    labels:
-      - "created-by=swarm-stack"
   influxdb_data:
-    driver: local
-    labels:
-      - "created-by=swarm-stack"
   postgres_data_auth_acl_service:
-    driver: local
-    labels:
-      - "created-by=swarm-stack"
   device-service-db-data:
-    driver: local
-    labels:
-      - "created-by=swarm-stack"
 
 networks:
   app-network:
     driver: overlay
     attachable: true
-    labels:
-      - "created-by=swarm-stack"
   auth-acl-private-network:
     driver: overlay
     attachable: true
-    labels:
-      - "created-by=swarm-stack"
   device-service-private-network:
     driver: overlay
     attachable: true
-    labels:
-      - "created-by=swarm-stack"
 
 configs:
   traefik_config:
@@ -372,4 +406,14 @@ configs:
   prometheus_config:
     external: true
   emqx_config:
+    external: true
+  grafana_datasources_config:
+    external: true
+  grafana_dashboards_config:
+    external: true
+  grafana_dashboard_json:
+    external: true
+  logstash_config:
+    external: true
+  filebeat_config:
     external: true
