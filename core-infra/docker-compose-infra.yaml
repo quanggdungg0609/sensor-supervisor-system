@@ -239,6 +239,8 @@ services:
       BCRYPT_SALT_ROUNDS: 12
       BCRYPT_CUSTOM_SALT: $2a$12$abcdefghijklmnopqrstuv
       APP_SECRET_KEY: your-secret-key-here-change-in-production
+      LOGSTASH_HOST: logstash
+      LOGSTASH_PORT: 12201
     restart: unless-stopped
     networks:
       - infrastructure-network

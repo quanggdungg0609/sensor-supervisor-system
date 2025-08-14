@@ -9,6 +9,11 @@ filebeat.inputs:
 
 processors:
 - add_docker_metadata: ~
+- drop_event:
+    when:
+      equals:
+        docker.container.labels.log.collection.ignore: "true"
+
 
 output.logstash:
   hosts: ["logstash:5044"]

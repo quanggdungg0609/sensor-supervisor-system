@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.quangdung</groupId>
     <artifactId>sss-auth-acl-service</artifactId>
-    <version>1.0.1.20-SNAPSHOT</version>
+    <version>1.0.2.1-SNAPSHOT</version>
 
     <properties>
         <compiler-plugin.version>3.14.0</compiler-plugin.version>
@@ -115,14 +115,9 @@
         </dependency>
         <!-- Logging extensions for Logstash -->
         <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-logging-json</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>net.logstash.logback</groupId>
-            <artifactId>logstash-logback-encoder</artifactId>
-            <version>7.4</version>
-        </dependency>
+    <groupId>io.quarkus</groupId>
+    <artifactId>quarkus-logging-gelf</artifactId>
+</dependency>
     </dependencies>
 
     <build>
