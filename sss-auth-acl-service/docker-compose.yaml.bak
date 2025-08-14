@@ -36,6 +36,38 @@ services:
     networks:
       - sensor-network
 
+  # Auth ACL Service with JSON logging to Logstash
+  sss-auth-acl-service:
+    image: 192.168.152.117:5000/quangdung/sss-auth-and-acl-service:1.0.2.8-SNAPSHOT
+    container_name: sss-auth-acl-service
+    environment:
+      - SERVICE_PORT=2001
+      - DB_ADDRESS=auth-acl-db:5432
+      - DB_USERNAME=quarkus
+      - DB_PASSWORD=quarkus123
+      - LOG_LEVEL=INFO
+      - CONSOLE_LOG_LEVEL=INFO
+      - ENVIRONMENT=development
+    ports:
+      - "2001:2001"
+    depends_on:
+      - auth-acl-db
+      - mqtt-broker
+    networks:
+      - sensor-network
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service,version,environment"
+    labels:
+      - "service=auth-and-acl-service"
+      - "version=1.0.2.3-SNAPSHOT"
+      - "environment=development"
+      - "log.collection.enabled=true"
+
 volumes:
   postgres_data:
   pgadmin_data:

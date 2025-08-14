@@ -79,12 +79,15 @@ services:
       - ./logstash.conf:/usr/share/logstash/pipeline/logstash.conf:ro
     ports:
       - "5044:5044"
+      - "12201:12201/udp"
       - "9600:9600"
     networks:
       - infrastructure-network
     depends_on:
       elasticsearch:
         condition: service_healthy
+    labels:
+      - "log.collection.ignore=true"
 
   kibana:
     image: docker.io/elastic/kibana:8.14.1
@@ -239,8 +242,10 @@ services:
       BCRYPT_SALT_ROUNDS: 12
       BCRYPT_CUSTOM_SALT: $2a$12$abcdefghijklmnopqrstuv
       APP_SECRET_KEY: your-secret-key-here-change-in-production
-      LOGSTASH_HOST: logstash
-      LOGSTASH_PORT: 12201
+      # Simple logging configuration
+      LOG_LEVEL: INFO
+      CONSOLE_LOG_LEVEL: INFO
+      ENVIRONMENT: production
     restart: unless-stopped
     networks:
       - infrastructure-network
@@ -250,6 +255,7 @@ services:
       - redis
       - auth-acl-db
       - sss-device-service
+      - logstash
 
   device-service-db:
     image: postgres:15-alpine
