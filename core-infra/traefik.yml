@@ -1,19 +1,18 @@
+providers:
+  docker:
+    exposedByDefault: false
+    endpoint: "unix:///var/run/docker.sock"
+
 entryPoints:
   http:
     address: ":80"
   https:
     address: ":443"
-  dashboard:
-    address: ":5050"
-  mqtt: # <--- ADDED: This is our new entrypoint for MQTT traffic
+  mqtt:
     address: ":1883"
-
-providers:
-  docker:
-    exposedByDefault: false # Good practice to not expose all containers automatically
 
 api:
   dashboard: true
-  insecure: true # Be careful with this in production
+  insecure: true
 
 accessLog: true

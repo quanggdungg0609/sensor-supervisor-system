@@ -26,7 +26,6 @@ services:
       placement:
         constraints:
           - "node.hostname == u24serv-cac"
-
   mqtt-broker:
     image: emqx/emqx:5.3.0
     configs:
@@ -40,10 +39,10 @@ services:
       - app-network
     labels:
       - "traefik.enable=true"
-      - "traefik.tcp.routers.emqx-mqtt.entrypoints=mqtt"
-      - "traefik.tcp.routers.emqx-mqtt.rule=HostSNI(`*`)"
-      - "traefik.tcp.routers.emqx-mqtt.service=emqx-mqtt-svc"
-      - "traefik.tcp.services.emqx-mqtt-svc.loadbalancer.server.port=1883"
+      - "traefik.tcp.routers.mqtt-router.entrypoints=mqtt"
+      - "traefik.tcp.routers.mqtt-router.rule=HostSNI(`*`)"
+      - "traefik.tcp.routers.mqtt-router.service=mqtt-service"  # Sửa thành一致 tên service
+      - "traefik.tcp.services.mqtt-service.loadbalancer.server.port=1883"  # Đổi tên service cho đồng bộ
     healthcheck:
       test: ["CMD", "emqx_ctl", "status"]
       interval: 5s
@@ -53,7 +52,7 @@ services:
     deploy:
       placement:
         constraints:
-          - "node.hostname == u24serv-db"
+          - "node.hostname == u24serv-cac"
 
   redis:
     image: redis:7-alpine
