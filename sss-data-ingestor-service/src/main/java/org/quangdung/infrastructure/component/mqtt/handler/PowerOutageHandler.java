@@ -1,6 +1,8 @@
 package org.quangdung.infrastructure.component.mqtt.handler;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Map;
 
 import org.jboss.logging.Logger;
@@ -58,17 +60,31 @@ public class PowerOutageHandler extends MessageHandler {
             log.error("Failed to parse power outage payload for topic: " + message.getTopic(), e);
             return Uni.createFrom().failure(e);
         }
-
+    
         Map<String, Object> dataMap = (Map<String, Object>) payloadMap.get("data");
         String timestampStr = (String) payloadMap.get("timestamp");
-
+    
         if (dataMap == null || dataMap.isEmpty()) {
             log.warn("Empty or null data map for client: " + clientId);
             return Uni.createFrom().voidItem();
         }
-
-        LocalDateTime timestamp = LocalDateTime.parse(timestampStr);
-
+    
+        // Parse timestamp with timezone support
+        LocalDateTime timestamp;
+        try {
+            if (timestampStr.endsWith("Z")) {
+                // Parse ISO timestamp with UTC timezone
+                OffsetDateTime offsetDateTime = OffsetDateTime.parse(timestampStr);
+                timestamp = offsetDateTime.toLocalDateTime();
+            } else {
+                // Parse local datetime without timezone
+                timestamp = LocalDateTime.parse(timestampStr);
+            }
+        } catch (Exception e) {
+            log.errorf(e, "Failed to parse timestamp: %s for client: %s", timestampStr, clientId);
+            return Uni.createFrom().failure(e);
+        }
+    
         // Giữ nguyên Integer (0 hoặc 1) thay vì chuyển thành String
         Integer powerStatus = (Integer) dataMap.get("power_status");
         

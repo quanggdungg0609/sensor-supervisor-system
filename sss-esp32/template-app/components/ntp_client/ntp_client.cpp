@@ -34,8 +34,8 @@ void NTPClient::initialize() {
 }
 
 /**
- * @brief Get formatted timestamp in ISO 8601 format without timezone indicator
- * @return Formatted timestamp string in format "YYYY-MM-DDTHH:MM:SS"
+ * @brief Get formatted timestamp in ISO 8601 format with UTC timezone indicator
+ * @return Formatted timestamp string in format "YYYY-MM-DDTHH:MM:SSZ"
  */
 std::string NTPClient::getFormattedTimestamp() {
     time_t now;
@@ -43,8 +43,8 @@ std::string NTPClient::getFormattedTimestamp() {
     struct tm timeinfo;
 
     time(&now);
-    localtime_r(&now, &timeinfo);
+    gmtime_r(&now, &timeinfo); // Use GMT/UTC time instead of local time
 
-    strftime(strftime_buf, sizeof(strftime_buf), "%Y-%m-%dT%H:%M:%S", &timeinfo);
+    strftime(strftime_buf, sizeof(strftime_buf), "%Y-%m-%dT%H:%M:%SZ", &timeinfo);
     return std::string(strftime_buf);
 }

@@ -1,6 +1,5 @@
 package com.quangdung.application.controller;
 
-
 import org.jboss.logging.Logger;
 
 import com.quangdung.application.dto.request.CreateDeviceRequest;
@@ -9,17 +8,18 @@ import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import io.quarkus.hibernate.reactive.panache.common.WithSession;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
-
 
 @Path("/api/v1/devices")
 @Produces(MediaType.APPLICATION_JSON) 
@@ -41,7 +41,6 @@ public class DeviceController {
         return deviceService.createDevice(request);
     }
 
-
     @GET
     @Path("/{deviceUuid}")
     @WithSession
@@ -49,5 +48,21 @@ public class DeviceController {
         @PathParam("deviceUuid") String deviceUuid
     ){
         return deviceService.getDeviceInfoByUuid(deviceUuid);
+    }
+
+    /**
+     * Get all devices with pagination support
+     * @param page Page number (0-based, default: 0)
+     * @param size Number of items per page (default: 20, max: 100)
+     * @return Paged response containing device list
+     */
+    @GET
+    @WithSession
+    public Uni<Response> getAllDevices(
+        @QueryParam("page") @DefaultValue("0") int page,
+        @QueryParam("size") @DefaultValue("10") int size
+    ){
+        log.infof("Getting all devices - page: %d, size: %d", page, size);
+        return deviceService.getAllDevices(page, size);
     }
 }

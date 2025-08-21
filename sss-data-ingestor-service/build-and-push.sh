@@ -182,7 +182,7 @@ build_image() {
     if [ -f "./mvnw" ]; then
         ./mvnw package -Dquarkus.container-image.build=true \
             -Dquarkus.package.type=uber-jar \
-            -Dquarkus.docker.buildx.platform=linux/amd64 \
+            -Dquarkus.docker.buildx.platform=linux/amd64,linux/arm64 \
             -Dquarkus.container-image.group=${IMAGE_GROUP} \
             -Dquarkus.container-image.name=${IMAGE_NAME} \
             -Dquarkus.container-image.tag=${version} \
@@ -190,7 +190,7 @@ build_image() {
     else
         mvn package -Dquarkus.container-image.build=true \
             -Dquarkus.package.type=uber-jar \
-            -Dquarkus.docker.buildx.platform=linux/amd64 \
+            -Dquarkus.docker.buildx.platform=linux/amd64,linux/arm64 \
             -Dquarkus.container-image.group=${IMAGE_GROUP} \
             -Dquarkus.container-image.name=${IMAGE_NAME} \
             -Dquarkus.container-image.tag=${version} \

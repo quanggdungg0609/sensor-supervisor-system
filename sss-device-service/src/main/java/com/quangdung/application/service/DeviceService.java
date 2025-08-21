@@ -8,6 +8,7 @@ import com.quangdung.core.exception.MqttUsernameAlreadyExistsException;
 import com.quangdung.domain.usecase.interfaces.ICheckMqttUsernameExistsUseCase;
 import com.quangdung.domain.usecase.interfaces.ICreateDeviceUseCase;
 import com.quangdung.domain.usecase.interfaces.IGetDeviceByUuidUseCase;
+import com.quangdung.domain.usecase.interfaces.IGetAllDevicesUseCase;
 
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -20,23 +21,23 @@ public class DeviceService {
     private final ICheckMqttUsernameExistsUseCase checkMqttUsernameExistsUseCase;
     private final ICreateDeviceUseCase createDeviceUseCase;
     private final IGetDeviceByUuidUseCase getDeviceByUuidUseCase;
-
-
+    private final IGetAllDevicesUseCase getAllDevicesUseCase;
 
     @Inject
     public DeviceService(
         Logger log, 
         ICreateDeviceUseCase createDeviceUseCase,
         ICheckMqttUsernameExistsUseCase checkMqttUsernameExistsUseCase,
-        IGetDeviceByUuidUseCase getDeviceByUuidUseCase
+        IGetDeviceByUuidUseCase getDeviceByUuidUseCase,
+        IGetAllDevicesUseCase getAllDevicesUseCase
     ){
         this.log = log;
         this.createDeviceUseCase = createDeviceUseCase;
         this.checkMqttUsernameExistsUseCase = checkMqttUsernameExistsUseCase;
         this.getDeviceByUuidUseCase = getDeviceByUuidUseCase;
+        this.getAllDevicesUseCase = getAllDevicesUseCase;
     }
 
-    
     public Uni<Response> createDevice(CreateDeviceRequest request){
         log.infof("Creating new device {}", request.getDeviceName());
         if (request.getMqttUsername() != null && request.getMqttUsername().toLowerCase().contains("admin")) {
@@ -58,10 +59,23 @@ public class DeviceService {
         });
     }
 
-
     public Uni<Response> getDeviceInfoByUuid(String uuid){
         return getDeviceByUuidUseCase.execute(uuid).onItem().transform(
             deviceInfo -> Response.ok().entity(deviceInfo).build()
         );
+    }
+
+    /**
+     * Get all devices with pagination support
+     * @param page Page number (0-based)
+     * @param size Number of items per page
+     * @return Response containing paged device list
+     */
+    public Uni<Response> getAllDevices(int page, int size) {
+        log.infof("Getting all devices with pagination - page: %d, size: %d", page, size);
+        return getAllDevicesUseCase.execute(page, size)
+            .onItem().transform(pagedResponse -> 
+                Response.ok().entity(pagedResponse).build()
+            );
     }
 }
