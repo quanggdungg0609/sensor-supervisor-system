@@ -143,4 +143,42 @@ public class DeviceRepository implements IDeviceRepository{
                 return new UpdateDeviceException("Problem when updating device", throwable);
             });
     }
+    
+    /**
+     * Delete a device by its UUID
+     * @param deviceUuid UUID of the device to delete
+     * @return Boolean indicating success or failure of the deletion
+     */
+    @Override
+    public Uni<Boolean> deleteDeviceByUuid(String deviceUuid) {
+        UUID uuid;
+        try {
+            uuid = UUID.fromString(deviceUuid);
+        } catch (IllegalArgumentException e) {
+            log.errorf(e, "Invalid UUID format received for deletion: %s", deviceUuid);
+            return Uni.createFrom().item(false);
+        }
+        
+        return DeviceEntity.findById(uuid)
+            .onItem().ifNotNull().transformToUni(entity -> {
+                DeviceEntity deviceEntity = (DeviceEntity) entity;
+                return deviceEntity.delete()
+                    .onItem().transform(deleted -> {
+                        log.infof("Device with UUID %s deleted successfully", deviceUuid);
+                        return true;
+                    })
+                    .onFailure().recoverWithItem(throwable -> {
+                        log.errorf(throwable, "Error deleting device with UUID %s", deviceUuid);
+                        return false;
+                    });
+            })
+            .onItem().ifNull().continueWith(() -> {
+                log.warnf("Device with UUID %s not found for deletion", deviceUuid);
+                return false;
+            })
+            .onFailure().recoverWithItem(throwable -> {
+                log.errorf(throwable, "Error finding device with UUID %s for deletion", deviceUuid);
+                return false;
+            });
+    }
 }

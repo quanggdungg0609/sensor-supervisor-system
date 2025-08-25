@@ -7,6 +7,7 @@ import com.quangdung.core.exception.InvalidMqttUsernameException;
 import com.quangdung.core.exception.MqttUsernameAlreadyExistsException;
 import com.quangdung.domain.usecase.interfaces.ICheckMqttUsernameExistsUseCase;
 import com.quangdung.domain.usecase.interfaces.ICreateDeviceUseCase;
+import com.quangdung.domain.usecase.interfaces.IDeleteDeviceUseCase;
 import com.quangdung.domain.usecase.interfaces.IGetDeviceByUuidUseCase;
 import com.quangdung.domain.usecase.interfaces.IGetAllDevicesUseCase;
 
@@ -22,6 +23,7 @@ public class DeviceService {
     private final ICreateDeviceUseCase createDeviceUseCase;
     private final IGetDeviceByUuidUseCase getDeviceByUuidUseCase;
     private final IGetAllDevicesUseCase getAllDevicesUseCase;
+    private final IDeleteDeviceUseCase deleteDeviceUseCase;
 
     @Inject
     public DeviceService(
@@ -29,13 +31,15 @@ public class DeviceService {
         ICreateDeviceUseCase createDeviceUseCase,
         ICheckMqttUsernameExistsUseCase checkMqttUsernameExistsUseCase,
         IGetDeviceByUuidUseCase getDeviceByUuidUseCase,
-        IGetAllDevicesUseCase getAllDevicesUseCase
+        IGetAllDevicesUseCase getAllDevicesUseCase,
+        IDeleteDeviceUseCase deleteDeviceUseCase
     ){
         this.log = log;
         this.createDeviceUseCase = createDeviceUseCase;
         this.checkMqttUsernameExistsUseCase = checkMqttUsernameExistsUseCase;
         this.getDeviceByUuidUseCase = getDeviceByUuidUseCase;
         this.getAllDevicesUseCase = getAllDevicesUseCase;
+        this.deleteDeviceUseCase = deleteDeviceUseCase;
     }
 
     public Uni<Response> createDevice(CreateDeviceRequest request){
@@ -58,24 +62,56 @@ public class DeviceService {
             );
         });
     }
-
-    public Uni<Response> getDeviceInfoByUuid(String uuid){
-        return getDeviceByUuidUseCase.execute(uuid).onItem().transform(
-            deviceInfo -> Response.ok().entity(deviceInfo).build()
-        );
+    
+    public Uni<Response> getDeviceInfoByUuid(String deviceUuid){
+        return getDeviceByUuidUseCase.execute(deviceUuid)
+            .onItem().transform(deviceInfo -> Response.ok(deviceInfo).build());
     }
-
+    
     /**
-     * Get all devices with pagination support
+     * Get all devices with pagination
      * @param page Page number (0-based)
      * @param size Number of items per page
      * @return Response containing paged device list
      */
     public Uni<Response> getAllDevices(int page, int size) {
-        log.infof("Getting all devices with pagination - page: %d, size: %d", page, size);
         return getAllDevicesUseCase.execute(page, size)
-            .onItem().transform(pagedResponse -> 
-                Response.ok().entity(pagedResponse).build()
-            );
+            .onItem().transform(pagedResponse -> Response.ok(pagedResponse).build());
+    }
+    
+    /**
+     * Delete a device by its UUID
+     * @param deviceUuid UUID of the device to delete
+     * @return Response indicating success or failure
+     */
+    public Uni<Response> deleteDevice(String deviceUuid) {
+        log.infof("Deleting device with UUID: %s", deviceUuid);
+        return deleteDeviceUseCase.execute(deviceUuid)
+            .onItem().transform(deleted -> {
+                if (deleted) {
+                    return Response.ok()
+                        .entity(java.util.Map.of(
+                            "message", "Device deleted successfully",
+                            "device_uuid", deviceUuid
+                        ))
+                        .build();
+                } else {
+                    return Response.status(Response.Status.NOT_FOUND)
+                        .entity(java.util.Map.of(
+                            "error", "Device not found or could not be deleted",
+                            "device_uuid", deviceUuid
+                        ))
+                        .build();
+                }
+            })
+            .onFailure().recoverWithItem(throwable -> {
+                log.errorf(throwable, "Error deleting device with UUID %s", deviceUuid);
+                return Response.serverError()
+                    .entity(java.util.Map.of(
+                        "error", "Failed to delete device: " + throwable.getMessage(),
+                        "device_uuid", deviceUuid
+                    ))
+                    .build();
+            });
     }
 }

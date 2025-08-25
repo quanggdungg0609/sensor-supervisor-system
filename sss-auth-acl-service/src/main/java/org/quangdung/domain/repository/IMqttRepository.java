@@ -32,4 +32,12 @@ public interface IMqttRepository {
      * @return Uni<Boolean> indicating success or failure
      */
     Uni<Boolean> updatePasswordByDeviceUuid(String deviceUuid, String hashedPassword);
+    
+    /**
+     * Deletes an MQTT account identified by device UUID
+     * 
+     * @param deviceUuid The device UUID of the account to delete
+     * @return Uni<Boolean> indicating success or failure of the deletion
+     */
+    Uni<Boolean> deleteByDeviceUuid(String deviceUuid);
 }

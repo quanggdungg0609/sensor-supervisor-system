@@ -8,6 +8,7 @@ import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
@@ -64,5 +65,20 @@ public class DeviceController {
     ){
         log.infof("Getting all devices - page: %d, size: %d", page, size);
         return deviceService.getAllDevices(page, size);
+    }
+
+    /**
+     * Delete a device by its UUID
+     * @param deviceUuid UUID of the device to delete
+     * @return Response indicating success or failure
+     */
+    @DELETE
+    @Path("/{deviceUuid}")
+    @WithTransaction
+    public Uni<Response> deleteDevice(
+        @PathParam("deviceUuid") String deviceUuid
+    ){
+        log.infof("Deleting device with uuid: %s", deviceUuid);
+        return deviceService.deleteDevice(deviceUuid);
     }
 }

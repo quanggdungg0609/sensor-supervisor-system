@@ -313,4 +313,39 @@ public class MqttRepository implements IMqttRepository {
                 return false;
             });
     }
+
+    /**
+     * Deletes an MQTT account identified by device UUID
+     * 
+     * @param deviceUuid The device UUID of the account to delete
+     * @return Uni<Boolean> indicating success or failure of the deletion operation
+     */
+    @Override
+    public Uni<Boolean> deleteByDeviceUuid(String deviceUuid) {
+        log.info("Deleting MQTT account for deviceUuid: " + deviceUuid);
+        
+        return MqttAccountEntity.find("deviceUuid", deviceUuid).firstResult()
+            .onItem().transformToUni(entity -> {
+                if (entity != null) {
+                    MqttAccountEntity mqttEntity = (MqttAccountEntity) entity;
+                    
+                    return mqttEntity.delete()
+                        .onItem().transform(deleted -> {
+                            log.info("Account deleted successfully for deviceUuid: " + deviceUuid);
+                            return true;
+                        })
+                        .onFailure().recoverWithItem(throwable -> {
+                            log.error("Failed to delete account for deviceUuid: " + deviceUuid, throwable);
+                            return false;
+                        });
+                } else {
+                    log.warn("No MQTT account found for deviceUuid: " + deviceUuid);
+                    return Uni.createFrom().item(false);
+                }
+            })
+            .onFailure().recoverWithItem(throwable -> {
+                log.error("Error occurred while deleting account for deviceUuid: " + deviceUuid, throwable);
+                return false;
+            });
+    }
 }

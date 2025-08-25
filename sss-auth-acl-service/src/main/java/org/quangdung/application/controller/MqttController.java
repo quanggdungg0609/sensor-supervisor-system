@@ -16,6 +16,7 @@ import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.PATCH;
 import jakarta.ws.rs.POST;
@@ -188,5 +189,31 @@ public class MqttController {
                         "error_type=" + throwable.getClass().getSimpleName());
                 });
         }, "endpoint=/device/{deviceUuid}", "method=PATCH");
+    }
+
+
+    @DELETE
+    @Path("/delete_by_uuid/{deviceUuid}")
+    @WithSession
+    public Uni<Response> deleteByUuid(@PathParam("deviceUuid") String deviceUuid){
+        log.info("Received delete by uuid request for deviceUuid: " + deviceUuid);
+        
+        return metricService.timeOperation("mqtt.controller.delete_by_uuid", () -> {
+            return mqttService.deleteByUuid(deviceUuid)
+                .onItem().invoke(response -> {
+                    // Record counter based on response status
+                    int statusCode = response.getStatus();
+                    String result = (statusCode >= 200 && statusCode < 300) ? "success" : "failure";
+                    metricService.incrementCounter("mqtt.controller.delete_by_uuid.requests", 
+                        "result=" + result, "status_code=" + statusCode);
+                })
+                .onFailure().invoke(throwable -> {
+                    log.error("Delete account failed", throwable);
+                    
+                    // Record error counter
+                    metricService.incrementCounter("mqtt.controller.delete_by_uuid.errors", 
+                        "error_type=" + throwable.getClass().getSimpleName());
+                });
+        }, "endpoint=/delete_by_uuid/{deviceUuid}", "method=DELETE");
     }
 }

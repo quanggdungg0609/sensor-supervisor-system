@@ -10,7 +10,9 @@ import org.quangdung.application.dto.response.ChangePasswordResponse;
 import org.quangdung.application.dto.response.MqttAccountInfoWithPass;
 import org.quangdung.application.dto.response.MqttResponse;
 import org.quangdung.application.dto.response.MqttUsernameRes;
+import org.quangdung.core.exception.MqttAccountNotExistsException;
 import org.quangdung.domain.use_case.interfaces.IChangePasswordUseCase;
+import org.quangdung.domain.use_case.interfaces.IDeleteAccountByUuidUseCase;
 import org.quangdung.domain.use_case.interfaces.IGetDeviceDetailsByClientIdUseCase;
 import org.quangdung.domain.use_case.interfaces.IGetMqttUsernameByClientIdUseCase;
 import org.quangdung.domain.use_case.interfaces.IMqttAuthenticationUseCase;
@@ -31,6 +33,7 @@ public class MqttService {
     private final IGetDeviceDetailsByClientIdUseCase getDeviceDetailsByClientIdUseCase;
     private final IGetMqttUsernameByClientIdUseCase getMqttUsernameByClientIdUseCase;
     private final IChangePasswordUseCase changePasswordUseCase;
+    private final IDeleteAccountByUuidUseCase deleteAccountByUuidUseCase;
 
     @Inject
     public MqttService(
@@ -40,7 +43,8 @@ public class MqttService {
         IMqttCreateAccountUseCase createAccountUseCase, 
         IGetDeviceDetailsByClientIdUseCase getDeviceDetailsByClientIdUseCase,
         IGetMqttUsernameByClientIdUseCase getMqttUsernameByClientIdUseCase,
-        IChangePasswordUseCase changePasswordUseCase
+        IChangePasswordUseCase changePasswordUseCase,
+        IDeleteAccountByUuidUseCase deleteAccountByUuidUseCase
     ) {
         this.log = log;
         this.authenticationUseCase = authenticationUseCase;
@@ -49,6 +53,42 @@ public class MqttService {
         this.getDeviceDetailsByClientIdUseCase = getDeviceDetailsByClientIdUseCase;
         this.getMqttUsernameByClientIdUseCase = getMqttUsernameByClientIdUseCase;
         this.changePasswordUseCase = changePasswordUseCase;
+        this.deleteAccountByUuidUseCase = deleteAccountByUuidUseCase;
+    }
+
+    /**
+     * Deletes an MQTT account identified by device UUID
+     * 
+     * @param deviceUuid The device UUID of the account to delete
+     * @return Response indicating success or failure
+     */
+    public Uni<Response> deleteByUuid(String deviceUuid) {
+        log.info("Processing delete account request for deviceUuid: " + deviceUuid);
+        
+        return deleteAccountByUuidUseCase.execute(deviceUuid)
+            .onItem().transform(success -> {
+                if (success) {
+                    log.info("Account deletion completed successfully for deviceUuid: " + deviceUuid);
+                    return Response.ok(Map.of("message", "Account deleted successfully")).build();
+                } else {
+                    log.warn("Account deletion failed for deviceUuid: " + deviceUuid);
+                    return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                        .entity(Map.of("error", "Failed to delete account"))
+                        .build();
+                }
+            })
+            .onFailure().recoverWithItem(throwable -> {
+                log.error("Failed to delete account for deviceUuid: " + deviceUuid, throwable);
+                if (throwable instanceof MqttAccountNotExistsException) {
+                    return Response.status(Response.Status.NOT_FOUND)
+                        .entity(Map.of("error", throwable.getMessage()))
+                        .build();
+                } else {
+                    return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                        .entity(Map.of("error", throwable.getMessage()))
+                        .build();
+                }
+            });
     }
 
     public Uni<Response> createNewAccount(MqttCreateAccountRequest request){

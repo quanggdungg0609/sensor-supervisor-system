@@ -31,4 +31,11 @@ public interface IDeviceRepository {
      * @return Total number of devices in database
      */
     Uni<Long> getTotalDevicesCount();
+    
+    /**
+     * Delete a device by its UUID
+     * @param deviceUuid UUID of the device to delete
+     * @return Boolean indicating success or failure of the deletion
+     */
+    Uni<Boolean> deleteDeviceByUuid(String deviceUuid);
 }
