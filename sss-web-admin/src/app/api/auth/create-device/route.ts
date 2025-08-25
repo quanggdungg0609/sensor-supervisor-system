@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import axios from 'axios';
-import https from 'https';
 
 /**
  * Interface for create device request body
@@ -82,14 +81,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       mqtt_username: trimmedMqttUsername,
     };
 
-    // Call external API
-    const externalApiUrl = 'https://media115.lanestel.fr/devices-service/api/v1/devices/create_device';
+    // Call internal service API
+    // Get base URL from environment variable  
+    const baseUrl = process.env.DEVICE_SERVICE_API_URL || 'http://sss-device-service:2002';
+    const externalApiUrl = `${baseUrl}/api/v1/devices/create_device`;
     
-    // Create axios instance with SSL verification disabled
-    const httpsAgent = new https.Agent({
-      rejectUnauthorized: false // ONLY for development/testing
-    });
-
+    // Internal Docker Swarm communication uses HTTP
     const response = await axios.post<ExternalApiResponse>(
       externalApiUrl,
       externalApiData,
@@ -97,7 +94,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         headers: {
           'Content-Type': 'application/json',
         },
-        httpsAgent: httpsAgent // Add this line
+        timeout: 10000 // 10 second timeout
       }
     );
 

@@ -17,6 +17,7 @@ import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.PATCH;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
@@ -160,5 +161,32 @@ public class MqttController {
     public Uni<Response> getMqttUsernameByClientId(@PathParam("clientId") String clientId){
         log.info("Received request to get mqtt username for clientId: " + clientId);
         return mqttService.getMqttUsernameByClientId(clientId);
+    }
+
+
+
+    @PATCH
+    @Path("/change_password/{deviceUuid}")
+    @WithSession
+    public Uni<Response> changePassword(@PathParam("deviceUuid") String deviceUuid){
+        log.info("Received change password request for deviceUuid: " + deviceUuid);
+        
+        return metricService.timeOperation("mqtt.controller.change_password", () -> {
+            return mqttService.changePassword(deviceUuid)
+                .onItem().invoke(response -> {
+                    // Record counter based on response status
+                    int statusCode = response.getStatus();
+                    String result = (statusCode >= 200 && statusCode < 300) ? "success" : "failure";
+                    metricService.incrementCounter("mqtt.controller.change_password.requests", 
+                        "result=" + result, "status_code=" + statusCode);
+                })
+                .onFailure().invoke(throwable -> {
+                    log.error("Change password failed", throwable);
+                    
+                    // Record error counter
+                    metricService.incrementCounter("mqtt.controller.change_password.errors", 
+                        "error_type=" + throwable.getClass().getSimpleName());
+                });
+        }, "endpoint=/device/{deviceUuid}", "method=PATCH");
     }
 }

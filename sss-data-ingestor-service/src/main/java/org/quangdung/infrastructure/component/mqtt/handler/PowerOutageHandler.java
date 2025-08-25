@@ -85,7 +85,7 @@ public class PowerOutageHandler extends MessageHandler {
             return Uni.createFrom().failure(e);
         }
     
-        // Giữ nguyên Integer (0 hoặc 1) thay vì chuyển thành String
+        // Keep Integer (0 or 1) instead of converting to String
         Integer powerStatus = (Integer) dataMap.get("power_status");
         
         log.infof("Processing power outage for client: %s, status: %d, timestamp: %s", 
@@ -93,7 +93,7 @@ public class PowerOutageHandler extends MessageHandler {
     
         DevicePowerOutageModel devicePowerOutageModel = DevicePowerOutageModel.builder()
             .clientId(clientId)
-            .powerStatus(powerStatus) // Gửi Integer (0 hoặc 1)
+            .powerStatus(powerStatus) // Send Integer (0 or 1)
             .timestamp(timestamp)
             .build();
             

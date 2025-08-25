@@ -1,39 +1,34 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
-import ClientProviders from '../components/ClientProviders';
+import ClientProviders from "@/components/ClientProviders";
+import { validateEnvironmentVariables } from "@/lib/env-validation";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "SSS Web Admin",
-  description: "Admin panel for SSS",
+  description: "SSS Web Admin Dashboard",
 };
 
-/**
- * Root layout component that wraps the entire application
- * Provides session management and UI framework providers
- * @param children - Child components to render
- * @returns JSX element for root layout
- */
+// Validate environment variables when the app starts (server-side)
+if (typeof window === 'undefined') {
+  try {
+    validateEnvironmentVariables();
+  } catch (error) {
+    console.error('Application startup failed:', error);
+    // In production, you might want to show an error page instead
+  }
+}
+
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <body className={inter.className}>
         <ClientProviders>
           {children}
         </ClientProviders>

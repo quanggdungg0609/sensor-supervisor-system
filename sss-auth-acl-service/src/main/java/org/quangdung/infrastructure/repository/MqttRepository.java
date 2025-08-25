@@ -219,4 +219,98 @@ public class MqttRepository implements IMqttRepository {
             }
         });
     }
+
+    /**
+     * Updates the password for an MQTT account identified by clientId
+     * 
+     * @param clientId The client ID to update password for
+     * @param hashedPassword The new hashed password
+     * @return Uni<Boolean> indicating success or failure of the update operation
+     */
+    @Override
+    public Uni<Boolean> updatePassword(String clientId, String hashedPassword) {
+        log.info("Updating password for clientId: " + clientId);
+        
+        return MqttAccountEntity.find("clientId", clientId).firstResult()
+            .onItem().transformToUni(entity -> {
+                if (entity != null) {
+                    MqttAccountEntity mqttEntity = (MqttAccountEntity) entity;
+                    mqttEntity.setMqttPassword(hashedPassword);
+                    
+                    return mqttEntity.persistAndFlush()
+                        .onItem().transform(persistedEntity -> {
+                            log.info("Password updated successfully for clientId: " + clientId);
+                            return true;
+                        })
+                        .onFailure().recoverWithItem(throwable -> {
+                            log.error("Failed to update password for clientId: " + clientId, throwable);
+                            return false;
+                        });
+                } else {
+                    log.warn("No MQTT account found for clientId: " + clientId);
+                    return Uni.createFrom().item(false);
+                }
+            })
+            .onFailure().recoverWithItem(throwable -> {
+                log.error("Error occurred while updating password for clientId: " + clientId, throwable);
+                return false;
+            });
+    }
+
+    /**
+     * Finds an MQTT account by device UUID
+     * 
+     * @param deviceUuid The device UUID to search for
+     * @return Uni<MqttAccount> containing the found account or null if not found
+     */
+    @Override
+    public Uni<MqttAccount> findByDeviceUuid(String deviceUuid) {
+        log.info("Finding MQTT account by deviceUuid: " + deviceUuid);
+        
+        return MqttAccountEntity.find("deviceUuid", deviceUuid).firstResult()
+            .onItem().transform(entity -> {
+                if (entity != null) {
+                    return MqttAccount.fromEntityWithoutPermissions((MqttAccountEntity) entity);
+                } else {
+                    return null;
+                }
+            });
+    }
+
+    /**
+     * Updates the password for an MQTT account identified by device UUID
+     * 
+     * @param deviceUuid The device UUID to update password for
+     * @param hashedPassword The new hashed password
+     * @return Uni<Boolean> indicating success or failure of the update operation
+     */
+    @Override
+    public Uni<Boolean> updatePasswordByDeviceUuid(String deviceUuid, String hashedPassword) {
+        log.info("Updating password for deviceUuid: " + deviceUuid);
+        
+        return MqttAccountEntity.find("deviceUuid", deviceUuid).firstResult()
+            .onItem().transformToUni(entity -> {
+                if (entity != null) {
+                    MqttAccountEntity mqttEntity = (MqttAccountEntity) entity;
+                    mqttEntity.setMqttPassword(hashedPassword);
+                    
+                    return mqttEntity.persistAndFlush()
+                        .onItem().transform(persistedEntity -> {
+                            log.info("Password updated successfully for deviceUuid: " + deviceUuid);
+                            return true;
+                        })
+                        .onFailure().recoverWithItem(throwable -> {
+                            log.error("Failed to update password for deviceUuid: " + deviceUuid, throwable);
+                            return false;
+                        });
+                } else {
+                    log.warn("No MQTT account found for deviceUuid: " + deviceUuid);
+                    return Uni.createFrom().item(false);
+                }
+            })
+            .onFailure().recoverWithItem(throwable -> {
+                log.error("Error occurred while updating password for deviceUuid: " + deviceUuid, throwable);
+                return false;
+            });
+    }
 }

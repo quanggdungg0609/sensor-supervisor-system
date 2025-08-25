@@ -57,6 +57,30 @@ public class MqttAccount {
             .build();
     }
 
+    /**
+     * Creates MqttAccount from entity without loading permissions collection
+     * This method avoids lazy loading issues when permissions are not needed
+     * 
+     * @param entity The MqttAccountEntity to convert
+     * @return MqttAccount without permissions loaded
+     */
+    public static MqttAccount fromEntityWithoutPermissions(MqttAccountEntity entity) {
+        if (entity == null) {
+            return null;
+        }
+        
+        return MqttAccount.builder()
+            .id(entity.id)
+            .deviceUuid(entity.getDeviceUuid())
+            .mqttUsername(entity.getMqttUsername())
+            .mqttPassword(entity.getMqttPassword())
+            .clientId(entity.getClientId())
+            .createdAt(entity.getCreatedAt())
+            .updatedAt(entity.getUpdatedAt())
+            .permissions(new ArrayList<>()) // Empty list instead of null
+            .build();
+    }
+
     public MqttAccountEntity toEntity() {
         List<MqttPermissionEntity> permissionEntities = null;
         if (this.permissions != null) {

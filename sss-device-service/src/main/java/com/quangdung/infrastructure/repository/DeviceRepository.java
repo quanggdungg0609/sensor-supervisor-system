@@ -10,6 +10,7 @@ import com.quangdung.core.exception.CreateDeviceException;
 import com.quangdung.core.exception.DeviceNotFoundException;
 import com.quangdung.core.exception.GetDeviceByUuidException;
 import com.quangdung.core.exception.IsMqttUsernameExistsException;
+import com.quangdung.core.exception.UpdateDeviceException;
 import com.quangdung.domain.entity.Device;
 import com.quangdung.domain.repository.IDeviceRepository;
 import com.quangdung.infrastructure.entity.device_entity.DeviceEntity;
@@ -98,6 +99,48 @@ public class DeviceRepository implements IDeviceRepository{
             .onFailure().transform(throwable -> {
                 log.error("Error getting total devices count", throwable);
                 return new RuntimeException("Problem when getting total devices count", throwable);
+            });
+    }
+
+    /**
+     * Update existing device information
+     * @param device Device entity to update
+     * @return Updated device entity
+     */
+    @Override
+    public Uni<Device> updateDevice(Device device) {
+        if (device.getDeviceUuid() == null) {
+            return Uni.createFrom().failure(new UpdateDeviceException("Device UUID is required for update"));
+        }
+        
+        return DeviceEntity.findById(device.getDeviceUuid())
+            .onItem().ifNotNull().transformToUni(existingEntity -> {
+                DeviceEntity entityToUpdate = (DeviceEntity) existingEntity;
+                
+                // Update fields
+                if (device.getDeviceName() != null) {
+                    entityToUpdate.setDeviceName(device.getDeviceName());
+                }
+                if (device.getMqttUsername() != null) {
+                    entityToUpdate.setMqttUsername(device.getMqttUsername());
+                }
+                if (device.getClientId() != null) {
+                    entityToUpdate.setClientId(device.getClientId());
+                }
+                if (device.getStatus() != null) {
+                    entityToUpdate.setStatus(DeviceEntity.DeviceStatus.valueOf(device.getStatus().name()));
+                }
+                
+                return entityToUpdate.persistAndFlush()
+                    .onItem().transform(updatedEntity -> Device.fromEntity((DeviceEntity) updatedEntity));
+            })
+            .onItem().ifNull().failWith(new DeviceNotFoundException("Device with UUID " + device.getDeviceUuid() + " not found for update"))
+            .onFailure().transform(throwable -> {
+                log.error("Error updating device", throwable);
+                if (throwable instanceof DeviceNotFoundException || throwable instanceof UpdateDeviceException) {
+                    return throwable;
+                }
+                return new UpdateDeviceException("Problem when updating device", throwable);
             });
     }
 }

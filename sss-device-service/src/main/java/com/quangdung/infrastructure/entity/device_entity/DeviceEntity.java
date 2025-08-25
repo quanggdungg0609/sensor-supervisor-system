@@ -29,7 +29,8 @@ import lombok.Setter;
 @Entity
 @Table(name = "devices", indexes = {
     @Index(name = "idx_device_device_name", columnList = "device_name"),
-    @Index(name = "idx_device_mqtt_username", columnList = "mqtt_username")
+    @Index(name = "idx_device_mqtt_username", columnList = "mqtt_username"),
+    @Index(name = "idx_device_client_id", columnList = "client_id")
 })
 public class DeviceEntity extends PanacheEntityBase{
     @Id
@@ -44,9 +45,14 @@ public class DeviceEntity extends PanacheEntityBase{
     @Column(name = "device_name")
     private String deviceName;
 
-
     @Column(name = "mqtt_username", nullable = false, unique = true)
     private String mqttUsername;
+
+    /**
+     * Client ID for MQTT connection
+     */
+    @Column(name = "client_id", nullable = true, unique = true)
+    private String clientId;
 
     @Column(name = "status", nullable = false)
     @Enumerated(EnumType.STRING)
@@ -58,6 +64,9 @@ public class DeviceEntity extends PanacheEntityBase{
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    /**
+     * Pre-persist callback to set default values
+     */
     @PrePersist
     public void prePersist(){
         this.createdAt = LocalDateTime.now();
@@ -67,6 +76,9 @@ public class DeviceEntity extends PanacheEntityBase{
         }
     }
 
+    /**
+     * Post-update callback to update timestamp
+     */
     @PostUpdate
     public void postUpdate(){
         this.updatedAt = LocalDateTime.now();

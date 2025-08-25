@@ -1,4 +1,7 @@
+import { DeviceListResponse } from '@/app/types/devices.type';
+import { getEnvVarWithFallback } from './env-validation';
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
+import https from 'https';
 
 /**
  * Interface for create device request
@@ -24,6 +27,28 @@ export interface CreateDeviceResponse {
   mqtt_username: string;
   mqtt_password: string;
   client_id: string;
+}
+
+/**
+ * Interface for password reset request
+ * @interface PasswordResetRequest
+ * @property {string} device_uuid - UUID of the device to reset password
+ */
+export interface PasswordResetRequest {
+  device_uuid: string;
+}
+
+/**
+ * Interface for password reset response
+ * @interface PasswordResetResponse
+ * @property {string} client_id - Client ID of the device
+ * @property {string} new_password - New generated password
+ * @property {string} message - Success message
+ */
+export interface PasswordResetResponse {
+  client_id: string;
+  new_password: string;
+  message: string;
 }
 
 /**
@@ -57,12 +82,18 @@ class ApiClient {
    * @param {string} baseURL - Base URL for API requests
    */
   constructor(baseURL: string = '/api') {
+    // Only create HTTPS agent for external HTTPS URLs (not internal Docker communication)
+    const httpsAgent = baseURL.startsWith('https://') ? new https.Agent({
+      rejectUnauthorized: false // ONLY for development/testing
+    }) : undefined;
+
     this.axiosInstance = axios.create({
       baseURL,
       timeout: 10000,
       headers: {
         'Content-Type': 'application/json',
       },
+      httpsAgent: httpsAgent, // Add HTTPS agent for external API calls
     });
 
     // Request interceptor
@@ -111,6 +142,49 @@ class ApiClient {
         throw new Error(errorMessage);
       }
       throw new Error('An unexpected error occurred');
+    }
+  }
+
+  /**
+   * Resets the password for a device
+   * @param {string} deviceUuid - UUID of the device to reset password
+   * @returns {Promise<PasswordResetResponse>} Promise resolving to password reset response
+   * @throws {Error} When API request fails
+   */
+  async resetDevicePassword(deviceUuid: string): Promise<PasswordResetResponse> {
+    try {
+      const response: AxiosResponse<PasswordResetResponse> = await this.axiosInstance.post(
+        '/auth/reset-password',
+        { device_uuid: deviceUuid }
+      );
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        const errorMessage = error.response?.data?.error || error.message;
+        throw new Error(errorMessage);
+      }
+      throw new Error('An unexpected error occurred');
+    }
+  }
+
+  async getDevices(page: number, size: number): Promise<DeviceListResponse> {
+    try{
+      const response: AxiosResponse<DeviceListResponse> = await this.axiosInstance.get(
+        '/auth/devices',
+        {
+          params: {
+            page,
+            size,
+          },
+        }
+      );
+      return response.data;
+    }catch(error){
+         if (axios.isAxiosError(error)) {
+            const errorMessage = error.response?.data?.error || error.message;
+            throw new Error(errorMessage);
+        }
+        throw new Error('An unexpected error occurred');
     }
   }
 
@@ -191,5 +265,11 @@ class ApiClient {
 }
 
 // Create and export a singleton instance
-const apiClient = new ApiClient();
+// Use correct environment variable for internal service communication
+const serverBaseUrl = getEnvVarWithFallback('DEVICE_SERVICE_API_URL', 'http://sss-device-service:2002');
+const serverApiClient = new ApiClient(serverBaseUrl);
+
+// Export both instances
+const apiClient = new ApiClient(); // Cho client-side (internal API routes)
 export default apiClient;
+export { serverApiClient }; // Cho server-side (external API)

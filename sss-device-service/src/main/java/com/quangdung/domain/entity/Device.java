@@ -14,6 +14,7 @@ public class Device {
     private UUID deviceUuid;
     private String deviceName;
     private String mqttUsername;
+    private String clientId;
     private DeviceStatus status;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -23,7 +24,10 @@ public class Device {
         INACTIVE
     }
 
-
+    /**
+     * Convert domain entity to database entity
+     * @return DeviceEntity for database persistence
+     */
     public DeviceEntity toEntity(){
         DeviceEntity.DeviceStatus entityStatus;
         if(this.status != null){
@@ -34,6 +38,7 @@ public class Device {
         DeviceEntity entity = DeviceEntity.builder()
             .deviceName(this.deviceName)
             .mqttUsername(this.mqttUsername)
+            .clientId(this.clientId)
             .createdAt(this.createdAt)
             .updatedAt(this.updatedAt)
             .status(entityStatus)
@@ -42,11 +47,15 @@ public class Device {
         return entity;
     }
 
+    /**
+     * Create domain entity from database entity
+     * @param entity Database entity
+     * @return Domain entity
+     */
     public static Device fromEntity(DeviceEntity entity){
         if (entity == null) {
             return null;
         }
-        
         
         DeviceStatus domainStatus = null;
         if (entity.getStatus() != null) {
@@ -57,6 +66,7 @@ public class Device {
             .deviceUuid(entity.getDeviceUuid())
             .deviceName(entity.getDeviceName())
             .mqttUsername(entity.getMqttUsername())
+            .clientId(entity.getClientId())
             .createdAt(entity.getCreatedAt())
             .updatedAt(entity.getUpdatedAt())
             .status(domainStatus)

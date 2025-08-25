@@ -62,6 +62,7 @@ public class GetAllDevicesUseCase implements IGetAllDevicesUseCase {
                         .deviceUuid(device.getDeviceUuid().toString())
                         .deviceName(device.getDeviceName())
                         .mqttUsername(device.getMqttUsername())
+                        .clientId(device.getClientId()) 
                         .build())
                     .collect(Collectors.toList());
                 

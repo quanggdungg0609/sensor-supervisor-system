@@ -12,6 +12,13 @@ public interface IDeviceRepository {
     Uni<Device> getDeviceByUuid(String deviceUuid);
     
     /**
+     * Update existing device information
+     * @param device Device entity to update
+     * @return Updated device entity
+     */
+    Uni<Device> updateDevice(Device device);
+    
+    /**
      * Get all devices with pagination support
      * @param page Page number (0-based)
      * @param size Number of items per page

@@ -62,10 +62,10 @@ public class DeviceStatusConsumer {
         .onFailure().invoke(throwable -> {
             if (throwable instanceof DeviceNotFoundException) {
                 log.warn("Caught DeviceNotFoundException: " + throwable.getMessage());
-                message.nack(throwable); // Nack nếu không tìm thấy thiết bị
+                message.nack(throwable); // Nack if device not found
             } else {
                 log.error("Unhandled error in device status update: " + throwable.getMessage(), throwable);
-                message.nack(throwable); // Nack cho các lỗi khác
+                message.nack(throwable); // Nack for other errors
             }
         })
         .onItem().transformToUni(

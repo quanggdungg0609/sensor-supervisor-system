@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { signOut, useSession } from 'next-auth/react';
 import {
   Box,
@@ -21,6 +21,7 @@ import {
 } from '@chakra-ui/react';
 import { useRouter } from 'next/navigation';
 import CreateDeviceForm from '@/components/ui/CreateDeviceForm';
+import DeviceList from '@/components/ui/DeviceList';
 
 /**
  * Dashboard page component - protected route with next-auth
@@ -30,13 +31,28 @@ export default function Dashboard() {
   const { data: session, status } = useSession();
   const toast = useToast();
   const router = useRouter();
+  const [isMounted, setIsMounted] = useState(false);
+
+  const deviceListRef = useRef<{ refreshIfLastPage: () => void }>(null);
+
+  // Prevent hydration mismatch by only using color values after mount
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
   
-  // Color mode values
-  const bgColor = useColorModeValue('gray.50', 'gray.900');
-  const navBgColor = useColorModeValue('white', 'gray.800');
-  const textColor = useColorModeValue('gray.900', 'white');
-  const subtextColor = useColorModeValue('gray.600', 'gray.400');
-  const borderColor = useColorModeValue('gray.200', 'gray.700');
+  // Color mode values - always call hooks to avoid Rules of Hooks violations
+  const bgColorValue = useColorModeValue('gray.50', 'gray.900');
+  const navBgColorValue = useColorModeValue('white', 'gray.800');
+  const textColorValue = useColorModeValue('gray.900', 'white');
+  const subtextColorValue = useColorModeValue('gray.600', 'gray.400');
+  const borderColorValue = useColorModeValue('gray.200', 'gray.700');
+
+  // Use mounted state to prevent hydration issues
+  const bgColor = isMounted ? bgColorValue : 'gray.50';
+  const navBgColor = isMounted ? navBgColorValue : 'white';
+  const textColor = isMounted ? textColorValue : 'gray.900';
+  const subtextColor = isMounted ? subtextColorValue : 'gray.600';
+  const borderColor = isMounted ? borderColorValue : 'gray.200';
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -44,6 +60,16 @@ export default function Dashboard() {
       router.push('/');
     }
   }, [status, router]);
+
+
+  /**
+   * Handles device creation success - refreshes device list if on last page
+   */
+  const handleDeviceCreated = () => {
+    if (deviceListRef.current) {
+      deviceListRef.current.refreshIfLastPage();
+    }
+  };
 
   /**
    * Handles user logout using next-auth signOut
@@ -143,19 +169,27 @@ export default function Dashboard() {
       {/* Main Content */}
       <Container 
         maxW="7xl" 
-        py={{ base: 1, md: 2 }}
-        px={{ base: 1, md: 2 }}
+        py={{ base: 2, md: 3 }}
+        px={{ base: 2, md: 3 }}
       >
         <Grid 
-          templateColumns={{ base: '1fr', lg: '1fr 1fr' }} 
-          gap={{ base: 2, md: 4 }} 
+          templateColumns={{ base: '1fr', xl: '1fr 1fr' }} 
+          gap={{ base: 1, md: 2 }}
+          templateRows={{ base: 'auto auto', xl: 'auto' }}
         >          
           {/* Device Creation Form */}
           <GridItem>
-            <CreateDeviceForm />
+            <CreateDeviceForm onDeviceCreated={handleDeviceCreated} />
+          </GridItem>
+          
+          {/* Device List */}
+          <GridItem>
+            <DeviceList ref={deviceListRef} />
           </GridItem>
         </Grid>
       </Container>
     </Box>
   );
 }
+
+

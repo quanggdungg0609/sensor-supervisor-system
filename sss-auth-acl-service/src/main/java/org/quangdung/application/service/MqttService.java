@@ -1,12 +1,16 @@
 package org.quangdung.application.service;
 
+import java.util.Map;
+
 import org.jboss.logging.Logger;
 import org.quangdung.application.dto.request.MqttAclRequest;
 import org.quangdung.application.dto.request.MqttAuthRequest;
 import org.quangdung.application.dto.request.MqttCreateAccountRequest;
+import org.quangdung.application.dto.response.ChangePasswordResponse;
 import org.quangdung.application.dto.response.MqttAccountInfoWithPass;
 import org.quangdung.application.dto.response.MqttResponse;
 import org.quangdung.application.dto.response.MqttUsernameRes;
+import org.quangdung.domain.use_case.interfaces.IChangePasswordUseCase;
 import org.quangdung.domain.use_case.interfaces.IGetDeviceDetailsByClientIdUseCase;
 import org.quangdung.domain.use_case.interfaces.IGetMqttUsernameByClientIdUseCase;
 import org.quangdung.domain.use_case.interfaces.IMqttAuthenticationUseCase;
@@ -26,7 +30,7 @@ public class MqttService {
     private final IMqttCreateAccountUseCase createAccountUseCase;
     private final IGetDeviceDetailsByClientIdUseCase getDeviceDetailsByClientIdUseCase;
     private final IGetMqttUsernameByClientIdUseCase getMqttUsernameByClientIdUseCase;
-
+    private final IChangePasswordUseCase changePasswordUseCase;
 
     @Inject
     public MqttService(
@@ -35,7 +39,8 @@ public class MqttService {
         IMqttAuthorizationUseCase authorizationUseCase,
         IMqttCreateAccountUseCase createAccountUseCase, 
         IGetDeviceDetailsByClientIdUseCase getDeviceDetailsByClientIdUseCase,
-        IGetMqttUsernameByClientIdUseCase getMqttUsernameByClientIdUseCase
+        IGetMqttUsernameByClientIdUseCase getMqttUsernameByClientIdUseCase,
+        IChangePasswordUseCase changePasswordUseCase
     ) {
         this.log = log;
         this.authenticationUseCase = authenticationUseCase;
@@ -43,6 +48,7 @@ public class MqttService {
         this.createAccountUseCase = createAccountUseCase;
         this.getDeviceDetailsByClientIdUseCase = getDeviceDetailsByClientIdUseCase;
         this.getMqttUsernameByClientIdUseCase = getMqttUsernameByClientIdUseCase;
+        this.changePasswordUseCase = changePasswordUseCase;
     }
 
     public Uni<Response> createNewAccount(MqttCreateAccountRequest request){
@@ -126,5 +132,34 @@ public class MqttService {
                     .build()
             ).build();
         });
+    }
+
+
+    /**
+     * Changes the password for a device identified by device UUID
+     * 
+     * @param deviceUuid The device UUID to change password for
+     * @return Response containing the new password (unhashed)
+     */
+    public Uni<Response> changePassword(String deviceUuid) {
+        log.info("Processing change password request for deviceUuid: " + deviceUuid);
+        
+        return changePasswordUseCase.execute(deviceUuid)
+            .onItem().transform(newPassword -> {
+                ChangePasswordResponse response = ChangePasswordResponse.builder()
+                    .clientId(deviceUuid) // Can be changed to deviceUuid field
+                    .newPassword(newPassword)
+                    .message("Password changed successfully")
+                    .build();
+                
+                log.info("Password change completed successfully for deviceUuid: " + deviceUuid);
+                return Response.ok(response).build();
+            })
+            .onFailure().recoverWithItem(throwable -> {
+                log.error("Failed to change password for deviceUuid: " + deviceUuid, throwable);
+                return Response.status(Response.Status.NOT_FOUND)
+                    .entity(Map.of("error", throwable.getMessage()))
+                    .build();
+            });
     }
 }

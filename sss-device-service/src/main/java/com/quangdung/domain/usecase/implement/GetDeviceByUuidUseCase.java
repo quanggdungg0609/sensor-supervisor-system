@@ -24,6 +24,7 @@ public class GetDeviceByUuidUseCase implements IGetDeviceByUuidUseCase{
                 .deviceUuid(device.getDeviceUuid().toString())
                 .deviceName(device.getDeviceName())
                 .mqttUsername(device.getMqttUsername())
+                .clientId(device.getClientId())
                 .build()
         );
     }

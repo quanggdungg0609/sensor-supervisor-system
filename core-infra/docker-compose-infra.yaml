@@ -148,7 +148,8 @@ services:
     ports:
       - "5432:5432" 
     environment:
-      POSTGRES_DB: auth_acl_db
+      POSTGRES_DB: 
+      
       POSTGRES_USER: quarkus
       POSTGRES_PASSWORD: quarkus123
     volumes:
@@ -199,9 +200,9 @@ services:
       - mqtt-broker
       - redis
       - auth-acl-db
-      - sss-device-service  # Thêm dependency
+      - sss-device-service  # Add dependency
 
-  # Thêm Device Service Database
+  # Add Device Service Database
   device-service-db:
     image: postgres:15-alpine
     container_name: device-service-app-db
@@ -222,7 +223,7 @@ services:
       start_period: 10s
     
 
-  # Thêm Device Service
+  # Add Device Service
   sss-device-service:
     image: 192.168.152.117:5000/quangdung/sss-device-service:latest
     container_name: sss-device-service

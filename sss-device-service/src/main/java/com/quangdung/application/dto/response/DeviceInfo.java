@@ -14,4 +14,6 @@ public class DeviceInfo {
     private String deviceName;
     @JsonProperty("mqtt_username")
     private String mqttUsername;
+    @JsonProperty("client_id")
+    private String clientId;
 }

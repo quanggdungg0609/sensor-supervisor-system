@@ -13,7 +13,6 @@ import {
   AlertTitle,
   AlertDescription,
   Text,
-  useToast,
   Card,
   CardBody,
   CardHeader,
@@ -32,14 +31,17 @@ import apiClient, { CreateDeviceResponse } from '@/lib/apiClient';
  * Component for creating new device with MQTT credentials
  * @returns {JSX.Element} CreateDeviceForm component
  */
-export default function CreateDeviceForm() {
+interface CreateDeviceFormProps {
+  onDeviceCreated?: () => void;
+}
+
+export default function CreateDeviceForm({ onDeviceCreated }: CreateDeviceFormProps) {
   const [deviceName, setDeviceName] = useState('');
   const [mqttUsername, setMqttUsername] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [deviceResponse, setDeviceResponse] = useState<CreateDeviceResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const toast = useToast();
 
   /**
    * Handles form submission to create a new device
@@ -49,43 +51,36 @@ export default function CreateDeviceForm() {
     e.preventDefault();
     
     if (!deviceName.trim() || !mqttUsername.trim()) {
-      setError('Veuillez remplir tous les champs');
+      setError('Veuillez remplir tous les champs requis');
       return;
     }
 
     setIsLoading(true);
     setError(null);
     setDeviceResponse(null);
-    setShowPassword(false); // Reset password visibility
 
     try {
       const response = await apiClient.createDevice({
         device_name: deviceName.trim(),
-        mqtt_username: mqttUsername.trim(),
+        mqtt_username: mqttUsername.trim()
       });
-
+      
       setDeviceResponse(response);
       setDeviceName('');
       setMqttUsername('');
       
-      toast({
-        title: 'Succès',
-        description: 'Le nouveau compte a été créé avec succès',
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
-      });
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Erreur inconnue';
-      setError(errorMessage);
+      // Call the callback to refresh device list if on last page
+      if (onDeviceCreated) {
+        onDeviceCreated();
+      }
       
-      toast({
-        title: 'Erreur',
-        description: errorMessage,
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      });
+    } catch (err: unknown) {
+      console.error('Error creating device:', err);
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('Une erreur est survenue lors de la création du device');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -119,7 +114,7 @@ export default function CreateDeviceForm() {
   };
 
   return (
-    <Box maxW="600px" mx="auto" p={6}>
+    <Box p={2}>
       <Card>
         <CardHeader>
           <Heading size="lg" textAlign="center">
