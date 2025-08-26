@@ -17,8 +17,16 @@ import {
   VStack,
   HStack,
   Grid,
-  GridItem
+  GridItem,
+  Menu,
+  MenuButton,
+  MenuList,
+  MenuItem,
+  IconButton,
+  Avatar
 } from '@chakra-ui/react';
+import { ChevronDownIcon } from '@chakra-ui/icons';
+import { FiBarChart, FiLogOut } from 'react-icons/fi';
 import { useRouter } from 'next/navigation';
 import CreateDeviceForm from '@/components/ui/CreateDeviceForm';
 import DeviceList from '@/components/ui/DeviceList';
@@ -46,6 +54,7 @@ export default function Dashboard() {
   const textColorValue = useColorModeValue('gray.900', 'white');
   const subtextColorValue = useColorModeValue('gray.600', 'gray.400');
   const borderColorValue = useColorModeValue('gray.200', 'gray.700');
+  const hoverColorValue = useColorModeValue('gray.100', 'gray.700');
 
   // Use mounted state to prevent hydration issues
   const bgColor = isMounted ? bgColorValue : 'gray.50';
@@ -53,6 +62,7 @@ export default function Dashboard() {
   const textColor = isMounted ? textColorValue : 'gray.900';
   const subtextColor = isMounted ? subtextColorValue : 'gray.600';
   const borderColor = isMounted ? borderColorValue : 'gray.200';
+  const hoverColor = isMounted ? hoverColorValue : 'gray.100';
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -68,6 +78,36 @@ export default function Dashboard() {
   const handleDeviceCreated = () => {
     if (deviceListRef.current) {
       deviceListRef.current.refreshIfLastPage();
+    }
+  };
+
+  /**
+   * Handles redirection to Grafana dashboard with proper authentication
+   */
+  const handleGrafanaRedirect = async () => {
+    try {
+      // Use server-side redirect that validates session
+      window.open(`https://media115.lanestel.fr/grafana`, '_blank');
+      
+      // Optional: Show feedback to user
+      toast({
+        title: 'Redirection vers Grafana',
+        description: 'Ouverture du tableau de bord Grafana...',
+        status: 'info',
+        duration: 2000,
+        isClosable: true,
+        position: 'top'
+      });
+    } catch (error) {
+      console.error('Grafana redirect error:', error);
+      toast({
+        title: 'Erreur',
+        description: 'Impossible d\'accéder à Grafana. Veuillez réessayer.',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+        position: 'top'
+      });
     }
   };
 
@@ -153,14 +193,44 @@ export default function Dashboard() {
               >
                 Connecté en tant que: {session?.user?.name || 'Admin'}
               </Text>
-              <Button
-                onClick={handleLogout}
-                colorScheme="red"
-                size={{ base: 'xs', md: 'sm' }}
-                variant="solid"
-              >
-                Se déconnecter
-              </Button>
+              
+              {/* User Dropdown Menu */}
+              <Menu>
+                <MenuButton
+                  as={Button}
+                  size={{ base: 'sm', md: 'md' }}
+                  variant="ghost"
+                  rightIcon={<ChevronDownIcon />}
+                  leftIcon={
+                    <Avatar 
+                      size="xs" 
+                      name={session?.user?.name || 'Admin'}
+                      bg="blue.500"
+                    />
+                  }
+                  color={textColor}
+                  _hover={{ bg: hoverColor }}
+                >
+                  <Text display={{ base: 'none', md: 'block' }}>
+                    {session?.user?.name || 'Admin'}
+                  </Text>
+                </MenuButton>
+                <MenuList>
+                  <MenuItem 
+                    icon={<FiBarChart />}
+                    onClick={handleGrafanaRedirect}
+                  >
+                    Grafana Dashboard
+                  </MenuItem>
+                  <MenuItem 
+                    icon={<FiLogOut />}
+                    onClick={handleLogout}
+                    color="red.500"
+                  >
+                    Se déconnecter
+                  </MenuItem>
+                </MenuList>
+              </Menu>
             </HStack>
           </Flex>
         </Container>

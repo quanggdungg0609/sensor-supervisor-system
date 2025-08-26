@@ -11,6 +11,7 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
@@ -23,6 +24,23 @@ public class AlertController {
     private AlertService alertService;
 
 
+    @POST
+    @Path("/config_alert/{deviceUuid}")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Uni<Response> configAlert(@QueryParam("deviceUuid") String deviceUuid, String jsonBody) {
+        try {
+            return Uni.createFrom().item(null);
+        } catch (Exception e) {
+            log.error("Error parsing JSON string: " + e.getMessage(), e);
+            // Return a bad request or server error response
+            return Uni.createFrom().item(
+                Response.status(Response.Status.BAD_REQUEST)
+                        .entity("{\"status\": \"error\", \"message\": \"Invalid JSON format: " + e.getMessage() + "\"}")
+                        .build()
+            );
+        }
+    }
 
 
 

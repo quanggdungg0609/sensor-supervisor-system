@@ -40,10 +40,10 @@ services:
       - app-network
     labels:
       - "traefik.enable=true"
-      - "traefik.tcp.routers.emqx-mqtt.entrypoints=mqtt"
-      - "traefik.tcp.routers.emqx-mqtt.rule=HostSNI(`*`)"
-      - "traefik.tcp.routers.emqx-mqtt.service=emqx-mqtt-svc"
-      - "traefik.tcp.services.emqx-mqtt-svc.loadbalancer.server.port=1883"
+      - "traefik.tcp.routers.mqtt-router.entrypoints=mqtt"
+      - "traefik.tcp.routers.mqtt-router.rule=HostSNI(`*`)"
+      - "traefik.tcp.routers.mqtt-router.service=mqtt-service"
+      - "traefik.tcp.services.mqtt-service.loadbalancer.server.port=1883"
     healthcheck:
       test: ["CMD", "emqx_ctl", "status"]
       interval: 5s
@@ -53,12 +53,14 @@ services:
     deploy:
       placement:
         constraints:
-          - "node.hostname == u24serv-db"
+          - "node.hostname == u24serv-cac"
 
-  redis:
+  telemetry-storage-service-redis:
     image: redis:7-alpine
+    ports:
+      - "6379:6379"
     volumes:
-      - redis_data:/data
+      - telemetry-storage-service-redis_data:/data
     restart: unless-stopped
     networks:
       - app-network
@@ -75,6 +77,9 @@ services:
 
   rabbitmq:
     image: rabbitmq:3.12-management-alpine
+    ports:
+      - "5672:5672"
+
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
@@ -99,8 +104,16 @@ services:
     configs:
       - source: prometheus_config
         target: /etc/prometheus/prometheus.yml
+    volumes:
+      - prometheus_data:/prometheus
     networks:
       - app-network
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'
     deploy:
       placement:
         constraints:
@@ -109,17 +122,48 @@ services:
   grafana:
     image: grafana/grafana:latest
     environment:
+      GF_SERVER_HTTP_PORT: 2030
       GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_SERVER_ROOT_URL: https://media115.lanestel.fr/grafana
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      GF_AUTH_PROXY_ENABLED: "true"
+      GF_AUTH_PROXY_HEADER_NAME: "X-WEBAUTH-USER"
+      GF_AUTH_PROXY_HEADER_PROPERTY: "username"
+      GF_AUTH_PROXY_AUTO_SIGN_UP: "true"
+      GF_AUTH_PROXY_HEADERS: "Role:X-WEBAUTH-ROLE"
     volumes:
       - grafana_data:/var/lib/grafana
+    configs:
+      - source: grafana_config
+        target: /etc/grafana/grafana.ini
+      - source: grafana_datasource_config
+        target: /etc/grafana/provisioning/datasources/influxdb.yml
+      - source: grafana_dashboard_config
+        target: /etc/grafana/provisioning/dashboards/dashboard.yml
+      - source: grafana_iot_sensors_dashboard
+        target: /etc/grafana/provisioning/dashboards/iot-sensors.json
+      - source: grafana_iot_overview_dashboard
+        target: /etc/grafana/provisioning/dashboards/iot-overview.json
     networks:
       - app-network
     depends_on:
       - prometheus
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.grafana.rule=Host(`media115.lanestel.fr`) && PathPrefix(`/grafana`)"
+      - "traefik.http.routers.grafana.entrypoints=http"
+      - "traefik.http.routers.grafana.priority=10"
+      - "traefik.http.routers.grafana.service=grafana-svc"
+      - "traefik.http.routers.grafana.middlewares=auth-forward"
+      - "traefik.http.services.grafana-svc.loadbalancer.server.port=2030"
+#      - "traefik.http.middlewares.strip-grafana-prefix.stripprefix.prefixes=/grafana"
+      - "traefik.http.middlewares.auth-forward.forwardauth.address=http://sss-web-admin:2010/api/auth/traefik-forward"
+      - "traefik.http.middlewares.auth-forward.forwardauth.authRequestHeaders=Cookie,X-Forwarded-For,X-Forwarded-Proto,X-Forwarded-Uri"
+      - "traefik.http.middlewares.auth-forward.forwardauth.authResponseHeaders=X-WEBAUTH-USER,X-WEBAUTH-ROLE"
     deploy:
       placement:
         constraints:
-          - "node.hostname == u24serv-db"
+          - "node.hostname == u24serv-cac"
 
   influxdb:
     image: influxdb:2.7-alpine
@@ -229,6 +273,9 @@ services:
 
   sss-device-service:
     image: 192.168.152.117:5000/quangdung/sss-device-service:latest
+    ports:
+      - "2002:2002"
+
     environment:
       DB_ADDRESS: device-service-db:5432
       DB_USERNAME: quarkus
@@ -246,13 +293,6 @@ services:
     depends_on:
       - rabbitmq
       - device-service-db
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.device-api.rule=PathPrefix(`/devices-service`)"
-      - "traefik.http.routers.device-api.entrypoints=http"
-      - "traefik.http.services.device-api-svc.loadbalancer.server.port=2002"
-      - "traefik.http.routers.device-api.middlewares=strip-device-prefix"
-      - "traefik.http.middlewares.strip-device-prefix.stripprefix.prefixes=/devices-service"
     deploy:
       placement:
         constraints:
@@ -300,7 +340,7 @@ services:
       RABBITMQ_PORT: 5672
       RABBITMQ_USER: guest
       RABBITMQ_PASSWORD: guest
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://telemetry-storage-service-redis:6379
       DEVICE_INFO_API_URL: http://sss-auth-acl-service:2001/
       INFLUXDB_URL: http://influxdb:8086
       INFLUXDB_TOKEN: my-super-secret-token
@@ -315,56 +355,61 @@ services:
         constraints:
           - "node.hostname == u24serv-cac"
 
+  sss-web-admin:
+    image: 192.168.152.117:5000/quangdung/sss-web-admin:latest
+    environment:
+      NODE_ENV: production
+      NEXTAUTH_URL: https://media115.lanestel.fr
+      NEXTAUTH_SECRET: your-nextauth-secret-change-in-production-min-32-chars
+      ADMIN_USER: admin
+      ADMIN_PASSWORD: admin123
+      DEVICE_SERVICE_API_URL: http://sss-device-service:2002
+      AUTH_ACL_SERVICE_API_URL: http://sss-auth-acl-service:2001
+#      GRAFANA_URL: http://grafana:2030
+#      GRAFANA_PUBLIC_URL: http://media115.lanestel.fr/grafana
+      PORT: 2010
+      HOSTNAME: "0.0.0.0"
+    restart: unless-stopped
+    networks:
+      - app-network
+    depends_on:
+      - grafana
+      - sss-device-service
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.web-admin.rule=Host(`media115.lanestel.fr`) && !PathPrefix(`/grafana`)"
+      - "traefik.http.routers.web-admin.entrypoints=http"
+      - "traefik.http.routers.web-admin.priority=1"
+      - "traefik.http.services.web-admin-svc.loadbalancer.server.port=2010"
+#      - "traefik.http.routers.web-admin.middlewares=headers-admin"
+#     - "traefik.http.middlewares.headers-admin.headers.customrequestheaders.X-Forwarded-Proto=http"
+#      - "traefik.http.middlewares.headers-admin.headers.customrequestheaders.X-Forwarded-Host=media115.lanestel.fr"
+    deploy:
+      placement:
+        constraints:
+          - "node.hostname == u24serv-cac"
+
 volumes:
   emqx_data:
-    driver: local
-    labels:
-      - "created-by=swarm-stack"
   emqx_log:
-    driver: local
-    labels:
-      - "created-by=swarm-stack"
   grafana_data:
-    driver: local
-    labels:
-      - "created-by=swarm-stack"
-  redis_data:
-    driver: local
-    labels:
-      - "created-by=swarm-stack"
+  telemetry-storage-service-redis_data:
   rabbitmq_data:
-    driver: local
-    labels:
-      - "created-by=swarm-stack"
   influxdb_data:
-    driver: local
-    labels:
-      - "created-by=swarm-stack"
   postgres_data_auth_acl_service:
-    driver: local
-    labels:
-      - "created-by=swarm-stack"
   device-service-db-data:
-    driver: local
-    labels:
-      - "created-by=swarm-stack"
+  prometheus_data:
 
 networks:
   app-network:
     driver: overlay
     attachable: true
-    labels:
-      - "created-by=swarm-stack"
   auth-acl-private-network:
     driver: overlay
     attachable: true
-    labels:
-      - "created-by=swarm-stack"
   device-service-private-network:
     driver: overlay
     attachable: true
-    labels:
-      - "created-by=swarm-stack"
 
 configs:
   traefik_config:
@@ -373,7 +418,6 @@ configs:
     external: true
   emqx_config:
     external: true
-  # ✅ ADD these configs:
   grafana_config:
     external: true
   grafana_datasource_config:

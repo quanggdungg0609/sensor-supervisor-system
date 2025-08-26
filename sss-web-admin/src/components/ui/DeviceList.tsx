@@ -40,8 +40,8 @@ import {
   SimpleGrid,
   Code
 } from '@chakra-ui/react';
-import { AiOutlineEye, AiOutlineReload, AiOutlineMore } from 'react-icons/ai';
-import apiClient, { PasswordResetResponse } from '@/lib/apiClient';
+import { AiOutlineEye, AiOutlineReload, AiOutlineMore, AiOutlineDelete } from 'react-icons/ai';
+import apiClient, { PasswordResetResponse, DeviceDeleteResponse } from '@/lib/apiClient';
 
 /**
  * Interface for device data structure
@@ -131,6 +131,7 @@ const DeviceList = forwardRef<DeviceListRef>((props, ref) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [resetLoading, setResetLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [passwordResetResult, setPasswordResetResult] = useState<PasswordResetResponse | null>(null);
   const [isMounted, setIsMounted] = useState(false);
   
@@ -221,6 +222,56 @@ const DeviceList = forwardRef<DeviceListRef>((props, ref) => {
   const handlePageChange = (newPage: number) => {
     if (newPage >= 0 && newPage < totalPages) {
       fetchDevices(newPage, pageSize);
+    }
+  };
+
+  /**
+   * Handles device deletion
+   * @param {string} deviceUuid - UUID of the device to delete
+   */
+  const handleDeleteDevice = async (deviceUuid: string) => {
+    try {
+      setDeleteLoading(true);
+      
+      // Show confirmation dialog
+      const confirmed = window.confirm(
+        'Êtes-vous sûr de vouloir supprimer définitivement cet appareil ? Cette action est irréversible.'
+      );
+      
+      if (!confirmed) {
+        setDeleteLoading(false);
+        return;
+      }
+      
+      await apiClient.deleteDevice(deviceUuid);
+      
+      toast({
+        title: 'Succès',
+        description: 'Appareil supprimé avec succès',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+        position: 'top'
+      });
+      
+      // Close modal and refresh device list
+      onClose();
+      fetchDevices(currentPage, pageSize);
+      
+    } catch (error: unknown) {
+      console.error('Device deletion error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Échec de la suppression de l\'appareil';
+      
+      toast({
+        title: 'Erreur',
+        description: errorMessage,
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+        position: 'top'
+      });
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -478,13 +529,13 @@ const DeviceList = forwardRef<DeviceListRef>((props, ref) => {
       <Modal isOpen={isOpen} onClose={onClose} size={modalSize}>
         <ModalOverlay />
         <ModalContent mx={isMobile ? 4 : 0}>
-          <ModalHeader fontSize={isMobile ? "lg" : "xl"}>
+          <ModalHeader fontSize={isMobile ? "md" : "lg"}>
             Détails de l&apos;appareil
           </ModalHeader>
           <ModalCloseButton />
-          <ModalBody>
+          <ModalBody pb={3}>
             {selectedDevice && (
-              <VStack spacing={4} align="stretch">
+              <VStack spacing={3} align="stretch">
                 <Box>
                   <Text fontSize="sm" color={subtextColor} mb={1}>
                     UUID de l&apos;appareil
@@ -540,9 +591,9 @@ const DeviceList = forwardRef<DeviceListRef>((props, ref) => {
 
           <ModalFooter>
             <Stack 
-              direction={isMobile ? "column" : "row"} 
-              spacing={3} 
-              width={isMobile ? "full" : "auto"}
+              direction="column"
+              spacing={2} 
+              width="full"
             >
               <Button
                 colorScheme="red"
@@ -551,15 +602,32 @@ const DeviceList = forwardRef<DeviceListRef>((props, ref) => {
                 isLoading={resetLoading}
                 loadingText="Réinitialisation..."
                 leftIcon={<AiOutlineReload />}
-                size={isMobile ? "sm" : "md"}
-                width={isMobile ? "full" : "auto"}
+                size="xs"
+                fontSize="xs"
+                width="full"
               >
                 Réinitialiser le mot de passe
               </Button>
+              
+              <Button
+                colorScheme="red"
+                variant="solid"
+                onClick={() => selectedDevice && handleDeleteDevice(selectedDevice.device_uuid)}
+                isLoading={deleteLoading}
+                loadingText="Suppression..."
+                leftIcon={<AiOutlineDelete />}
+                size="xs"
+                fontSize="xs"
+                width="full"
+              >
+                Supprimer l'appareil
+              </Button>
+              
               <Button 
                 onClick={onClose}
-                size={isMobile ? "sm" : "md"}
-                width={isMobile ? "full" : "auto"}
+                size="xs"
+                fontSize="xs"
+                width="full"
               >
                 Fermer
               </Button>
@@ -640,7 +708,8 @@ const DeviceList = forwardRef<DeviceListRef>((props, ref) => {
                 setPasswordResetResult(null);
               }}
               colorScheme="green"
-              size={isMobile ? "sm" : "md"}
+              size="xs"
+              fontSize="xs"
               width={isMobile ? "full" : "auto"}
             >
               Fermer

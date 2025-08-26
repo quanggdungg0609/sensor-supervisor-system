@@ -52,6 +52,26 @@ export interface PasswordResetResponse {
 }
 
 /**
+ * Interface for device deletion request
+ * @interface DeviceDeleteRequest
+ * @property {string} device_uuid - UUID of the device to delete
+ */
+export interface DeviceDeleteRequest {
+  device_uuid: string;
+}
+
+/**
+ * Interface for device deletion response
+ * @interface DeviceDeleteResponse
+ * @property {string} message - Success message
+ * @property {string} device_uuid - UUID of the deleted device
+ */
+export interface DeviceDeleteResponse {
+  message: string;
+  device_uuid: string;
+}
+
+/**
  * Interface for API error response
  * @interface ApiError
  * @property {string} error - Error message
@@ -156,6 +176,30 @@ class ApiClient {
       const response: AxiosResponse<PasswordResetResponse> = await this.axiosInstance.post(
         '/auth/reset-password',
         { device_uuid: deviceUuid }
+      );
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        const errorMessage = error.response?.data?.error || error.message;
+        throw new Error(errorMessage);
+      }
+      throw new Error('An unexpected error occurred');
+    }
+  }
+
+  /**
+   * Deletes a device completely
+   * @param {string} deviceUuid - UUID of the device to delete
+   * @returns {Promise<DeviceDeleteResponse>} Promise resolving to device deletion response
+   * @throws {Error} When API request fails
+   */
+  async deleteDevice(deviceUuid: string): Promise<DeviceDeleteResponse> {
+    try {
+      const response: AxiosResponse<DeviceDeleteResponse> = await this.axiosInstance.delete(
+        '/auth/delete-device',
+        {
+          data: { device_uuid: deviceUuid }
+        }
       );
       return response.data;
     } catch (error) {
