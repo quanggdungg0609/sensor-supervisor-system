@@ -181,4 +181,23 @@ public class DeviceRepository implements IDeviceRepository{
                 return false;
             });
     }
+    
+    /**
+     * Get device by client ID
+     * @param clientId Client ID of the device
+     * @return Device entity if found
+     */
+    @Override
+    public Uni<Device> getDeviceByClientId(String clientId) {
+        return DeviceEntity.find("clientId", clientId).firstResult()
+            .onItem().ifNotNull().transform(deviceEntity -> Device.fromEntity((DeviceEntity) deviceEntity))
+            .onItem().ifNull().failWith(new DeviceNotFoundException("Device with client ID " + clientId + " not found."))
+            .onFailure().transform(throwable -> {
+                log.error(throwable);
+                if (throwable instanceof DeviceNotFoundException) {
+                    return throwable;
+                }
+                return new GetDeviceByUuidException("Problem when getting device by client ID", throwable);
+            });
+    }
 }

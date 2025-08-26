@@ -12,6 +12,13 @@ public interface IDeviceRepository {
     Uni<Device> getDeviceByUuid(String deviceUuid);
     
     /**
+     * Get device by client ID
+     * @param clientId Client ID of the device
+     * @return Device entity if found
+     */
+    Uni<Device> getDeviceByClientId(String clientId);
+    
+    /**
      * Update existing device information
      * @param device Device entity to update
      * @return Updated device entity

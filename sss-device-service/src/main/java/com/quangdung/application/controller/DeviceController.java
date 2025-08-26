@@ -51,6 +51,16 @@ public class DeviceController {
         return deviceService.getDeviceInfoByUuid(deviceUuid);
     }
 
+    @GET
+    @Path("/get_device_by_clientid/{clientId}")
+    @WithSession
+    public Uni<Response> getDeviceByClientIdUni(
+        @PathParam("clientId") String clientId
+    ){
+        log.infof("Getting info device with client id [%s]", clientId);
+        return deviceService.getDeviceByClientId(clientId);
+    }
+
     /**
      * Get all devices with pagination support
      * @param page Page number (0-based, default: 0)
