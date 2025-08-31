@@ -1,4 +1,5 @@
 import { DeviceListResponse } from '@/app/types/devices.type';
+import { AllThresholdsResponse } from '@/app/types/threshold.type';
 import { getEnvVarWithFallback } from './env-validation';
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import https from 'https';
@@ -233,6 +234,27 @@ class ApiClient {
   }
 
   /**
+   * Gets all thresholds for a specific device
+   * @param {string} deviceUuid - UUID of the device
+   * @returns {Promise<AllThresholdsResponse>} Promise resolving to all thresholds response
+   * @throws {Error} When API request fails
+   */
+  async getAllThresholds(deviceUuid: string): Promise<AllThresholdsResponse> {
+    try {
+      const response: AxiosResponse<AllThresholdsResponse> = await this.axiosInstance.get(
+        `/auth/get-all-thresholds/${deviceUuid}`
+      );
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        const errorMessage = error.response?.data?.error || error.message;
+        throw new Error(errorMessage);
+      }
+      throw new Error('An unexpected error occurred');
+    }
+  }
+
+  /**
    * Generic GET request method
    * @param {string} endpoint - API endpoint
    * @param {QueryParams} params - Query parameters
@@ -292,11 +314,12 @@ class ApiClient {
   /**
    * Generic DELETE request method
    * @param {string} endpoint - API endpoint
+   * @param {object} config - Optional config with data for DELETE requests with body
    * @returns {Promise<T>} Promise resolving to response data
    */
-  async delete<T>(endpoint: string): Promise<T> {
+  async delete<T>(endpoint: string, config?: { data?: RequestData }): Promise<T> {
     try {
-      const response: AxiosResponse<T> = await this.axiosInstance.delete(endpoint);
+      const response: AxiosResponse<T> = await this.axiosInstance.delete(endpoint, config);
       return response.data;
     } catch (error) {
       if (axios.isAxiosError(error)) {
@@ -316,4 +339,4 @@ const serverApiClient = new ApiClient(serverBaseUrl);
 // Export both instances
 const apiClient = new ApiClient(); // Cho client-side (internal API routes)
 export default apiClient;
-export { serverApiClient }; // Cho server-side (external API)
+export { apiClient, serverApiClient }; // Cho server-side (external API)

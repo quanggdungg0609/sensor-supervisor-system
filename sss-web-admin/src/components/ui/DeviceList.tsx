@@ -40,8 +40,11 @@ import {
   SimpleGrid,
   Code
 } from '@chakra-ui/react';
-import { AiOutlineEye, AiOutlineReload, AiOutlineMore, AiOutlineDelete } from 'react-icons/ai';
+import { AiOutlineEye, AiOutlineReload, AiOutlineMore, AiOutlineDelete, AiOutlineUnorderedList } from 'react-icons/ai';
+import { FiSettings, FiPlus } from 'react-icons/fi';
 import apiClient, { PasswordResetResponse, DeviceDeleteResponse } from '@/lib/apiClient';
+import ThresholdConfig from "./ThresholdConfig";
+import ThresholdList from "./ThresholdList";
 
 /**
  * Interface for device data structure
@@ -148,6 +151,21 @@ const DeviceList = forwardRef<DeviceListRef>((props, ref) => {
     isOpen: isResetModalOpen, 
     onOpen: onResetModalOpen, 
     onClose: onResetModalClose 
+  } = useDisclosure();
+  const { 
+    isOpen: isThresholdModalOpen, 
+    onOpen: onThresholdModalOpen, 
+    onClose: onThresholdModalClose 
+  } = useDisclosure();
+  const { 
+    isOpen: isAddThresholdModalOpen, 
+    onOpen: onAddThresholdModalOpen, 
+    onClose: onAddThresholdModalClose 
+  } = useDisclosure();
+  const { 
+    isOpen: isThresholdListModalOpen, 
+    onOpen: onThresholdListModalOpen, 
+    onClose: onThresholdListModalClose 
   } = useDisclosure();
   const toast = useToast();
   
@@ -285,7 +303,11 @@ const DeviceList = forwardRef<DeviceListRef>((props, ref) => {
       const result = await apiClient.resetDevicePassword(deviceUuid);
       
       setPasswordResetResult(result);
-      onResetModalOpen();
+      closeAllModals();
+      // Small delay to ensure modals are closed before opening new one
+      setTimeout(() => {
+        onResetModalOpen();
+      }, 100);
       
       toast({
         title: 'Succès',
@@ -318,9 +340,63 @@ const DeviceList = forwardRef<DeviceListRef>((props, ref) => {
    * @param device - Device object to display
    */
   const handleMoreInfo = (device: Device) => {
+    closeAllModals();
     setSelectedDevice(device);
-    onOpen();
+    // Small delay to ensure modals are closed before opening new one
+    setTimeout(() => {
+      onOpen();
+    }, 100);
   };
+
+  /**
+   * Closes all modals to prevent stacking
+   */
+  const closeAllModals = () => {
+    onClose();
+    onThresholdModalClose();
+    onAddThresholdModalClose();
+    onThresholdListModalClose();
+    onResetModalClose();
+  };
+
+  /**
+   * Handles threshold configuration modal opening
+   * @param device - Device object to configure threshold for
+   */
+  const handleThresholdConfig = (device: Device) => {
+    closeAllModals();
+    setSelectedDevice(device);
+    // Small delay to ensure modals are closed before opening new one
+    setTimeout(() => {
+      onThresholdModalOpen();
+    }, 100);
+  };
+
+  /**
+   * Handles add new threshold modal opening
+   * @param device - Device object to add a threshold for
+   */
+  const handleAddThreshold = (device: Device) => {
+    closeAllModals();
+    setSelectedDevice(device);
+    // Small delay to ensure modals are closed before opening new one
+    setTimeout(() => {
+      onAddThresholdModalOpen();
+    }, 100);
+  };
+
+  /**
+   * Handles threshold list modal opening
+   * @param device - Device object to view thresholds for
+   */
+  const handleViewThresholds = (device: Device) => {
+    closeAllModals();
+    setSelectedDevice(device);
+    // Small delay to ensure modals are closed before opening new one
+    setTimeout(() => {
+      onThresholdListModalOpen();
+    }, 100);
+  }
 
   /**
    * Refreshes device list only if currently on the last page
@@ -526,7 +602,13 @@ const DeviceList = forwardRef<DeviceListRef>((props, ref) => {
       </Card>
 
       {/* Device Details Modal */}
-      <Modal isOpen={isOpen} onClose={onClose} size={modalSize}>
+      <Modal 
+        isOpen={isOpen} 
+        onClose={onClose} 
+        size={modalSize}
+        blockScrollOnMount={true}
+        preserveScrollBarGap={true}
+      >
         <ModalOverlay />
         <ModalContent mx={isMobile ? 4 : 0}>
           <ModalHeader fontSize={isMobile ? "md" : "lg"}>
@@ -596,6 +678,30 @@ const DeviceList = forwardRef<DeviceListRef>((props, ref) => {
               width="full"
             >
               <Button
+                colorScheme="blue"
+                variant="outline"
+                onClick={() => selectedDevice && handleAddThreshold(selectedDevice)}
+                leftIcon={<FiSettings />}
+                size="xs"
+                fontSize="xs"
+                width="full"
+              >
+                Configurer les seuils
+              </Button>
+              
+              <Button
+                colorScheme="teal"
+                variant="outline"
+                onClick={() => selectedDevice && handleViewThresholds(selectedDevice)}
+                leftIcon={<AiOutlineUnorderedList />}
+                size="xs"
+                fontSize="xs"
+                width="full"
+              >
+                Voir les seuils configurés
+              </Button>
+              
+              <Button
                 colorScheme="red"
                 variant="outline"
                 onClick={() => selectedDevice && handleResetPassword(selectedDevice.device_uuid)}
@@ -620,7 +726,7 @@ const DeviceList = forwardRef<DeviceListRef>((props, ref) => {
                 fontSize="xs"
                 width="full"
               >
-                Supprimer l'appareil
+                Supprimer l&apos;appareil
               </Button>
               
               <Button 
@@ -636,8 +742,46 @@ const DeviceList = forwardRef<DeviceListRef>((props, ref) => {
         </ModalContent>
       </Modal>
 
+      {/* Threshold Configuration Modal */}
+      {selectedDevice && (
+        <ThresholdConfig
+          isOpen={isThresholdModalOpen}
+          onClose={onThresholdModalClose}
+          deviceUuid={selectedDevice.device_uuid}
+          deviceName={selectedDevice.device_name}
+          mode="configure"
+        />
+      )}
+
+      {/* Add New Threshold Modal */}
+      {selectedDevice && (
+        <ThresholdConfig
+          isOpen={isAddThresholdModalOpen}
+          onClose={onAddThresholdModalClose}
+          deviceUuid={selectedDevice.device_uuid}
+          deviceName={selectedDevice.device_name}
+          mode="add"
+        />
+      )}
+
+      {/* Threshold List Modal */}
+      {selectedDevice && (
+        <ThresholdList
+          isOpen={isThresholdListModalOpen}
+          onClose={onThresholdListModalClose}
+          deviceUuid={selectedDevice.device_uuid}
+          deviceName={selectedDevice.device_name}
+        />
+      )}
+
       {/* Password Reset Result Modal */}
-      <Modal isOpen={isResetModalOpen} onClose={onResetModalClose} size={modalSize}>
+      <Modal 
+        isOpen={isResetModalOpen} 
+        onClose={onResetModalClose} 
+        size={modalSize}
+        blockScrollOnMount={true}
+        preserveScrollBarGap={true}
+      >
         <ModalOverlay />
         <ModalContent mx={isMobile ? 4 : 0}>
           <ModalHeader fontSize={isMobile ? "lg" : "xl"} color="green.600">

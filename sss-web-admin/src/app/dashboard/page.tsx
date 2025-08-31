@@ -30,6 +30,7 @@ import { FiBarChart, FiLogOut } from 'react-icons/fi';
 import { useRouter } from 'next/navigation';
 import CreateDeviceForm from '@/components/ui/CreateDeviceForm';
 import DeviceList from '@/components/ui/DeviceList';
+import AlertEmailList from '@/components/ui/AlertEmailList';
 
 /**
  * Dashboard page component - protected route with next-auth
@@ -252,10 +253,17 @@ export default function Dashboard() {
             <CreateDeviceForm onDeviceCreated={handleDeviceCreated} />
           </GridItem>
           
+          {/* Alert Email List */}
+          <GridItem>
+            <AlertEmailList />
+          </GridItem>
+
           {/* Device List */}
           <GridItem>
             <DeviceList ref={deviceListRef} />
           </GridItem>
+
+          
         </Grid>
       </Container>
     </Box>

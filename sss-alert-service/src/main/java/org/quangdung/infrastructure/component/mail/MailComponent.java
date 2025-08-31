@@ -1,5 +1,7 @@
 package org.quangdung.infrastructure.component.mail;
 
+import java.util.Set;
+
 import org.jboss.logging.Logger;
 
 import io.quarkus.mailer.Mail;
@@ -16,13 +18,15 @@ public class MailComponent {
     @Inject
     private Logger log;
 
-    public Uni<Void> sendAlertMail(String subject, String body){
+    public Uni<Void> sendAlertMail(String subject, String body, Set<String> emails){
         log.info("Sending mail...");
         Mail mail = new Mail()
-            .addTo("eric_b_jordan@hotmail.com")
-            // .addTo("pjoffre@lanestel.fr") 
             .setSubject(subject)
             .setText(body);
+        for(String email : emails){
+            mail.addTo(email);
+        }
+
         return mailer.send(mail).onItem().invoke(()->{
             log.info("Mail sent successfully!");
         })
