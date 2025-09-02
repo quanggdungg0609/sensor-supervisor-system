@@ -24,13 +24,13 @@ export interface FilteredTelemetryValuesResponse {
 /**
  * GET handler for fetching telemetry values for a specific device
  * @param {NextRequest} request - The incoming request
- * @param {Object} params - Route parameters
- * @param {string} params.deviceUuid - Device UUID from URL
+ * @param {Object} context - Route context
+ * @param {Promise<{ deviceUuid: string }>} context.params - Route parameters
  * @returns {Promise<NextResponse>} Response with filtered telemetry values or error
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { deviceUuid: string } }
+  context: { params: Promise<{ deviceUuid: string }> }
 ) {
   try {
     // Check authentication
@@ -48,7 +48,7 @@ export async function GET(
     console.log('Authentication successful, proceeding to fetch telemetry values...');
 
     // Get device UUID from params
-    const { deviceUuid } = params;
+    const { deviceUuid } = await context.params;
     
     if (!deviceUuid) {
       return NextResponse.json(

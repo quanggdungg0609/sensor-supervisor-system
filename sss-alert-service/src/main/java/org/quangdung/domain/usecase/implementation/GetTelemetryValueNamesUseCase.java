@@ -6,6 +6,7 @@ import org.quangdung.domain.usecase.interfaces.IGetTelemetryValueNamesUseCase;
 import org.quangdung.infrastructure.component.influx_component.InfluxComponent;
 
 import io.smallrye.mutiny.Multi;
+import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
@@ -25,7 +26,7 @@ public class GetTelemetryValueNamesUseCase implements IGetTelemetryValueNamesUse
      * @return Multi<List<String>> A stream of lists containing field names
      */
     @Override
-    public Multi<List<String>> execute(String deviceUuid) {
+    public Uni<List<String>> execute(String deviceUuid) {
         return influxComponent.getTelemetryValueNames(deviceUuid);
     }
 }

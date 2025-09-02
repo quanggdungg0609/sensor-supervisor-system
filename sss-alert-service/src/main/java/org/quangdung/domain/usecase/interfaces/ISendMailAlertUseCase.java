@@ -9,4 +9,5 @@ import io.smallrye.mutiny.Uni;
 
 public interface ISendMailAlertUseCase {
     Uni<Void> execute(Map<String, Double> currentValues, ThresholdModel threshold, DeviceInfoModel deviceInfo);
+    Uni<Void> execute(String subject, String body);
 }

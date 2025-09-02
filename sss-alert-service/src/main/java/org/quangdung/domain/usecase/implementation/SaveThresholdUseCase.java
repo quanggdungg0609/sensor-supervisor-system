@@ -45,7 +45,6 @@ public class SaveThresholdUseCase implements ISaveThresholdUseCase {
                         case LOWER -> org.quangdung.infrastructure.entity.ThresholdEntity.ThresholdType.LOWER;
         };
                 
-                // Save threshold with the retrieved clientId
         return thresholdRedisRepository.saveThreshold(
                     clientId,
                     entityLevel,

@@ -316,7 +316,6 @@ public class AlertService {
 
     public Uni<Response> getTelemetryValueNames(String deviceUuid) {
         return getTelemetryValueNamesUseCase.execute(deviceUuid)
-            .collect().first()
             .onItem().transform(fieldNames -> {
                 if (fieldNames == null || fieldNames.isEmpty()) {
                     return Response.status(Response.Status.NOT_FOUND)

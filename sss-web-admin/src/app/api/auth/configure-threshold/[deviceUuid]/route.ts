@@ -7,13 +7,13 @@ import axios from 'axios';
 /**
  * POST handler for configuring device threshold
  * @param {NextRequest} request - The incoming request
- * @param {Object} params - Route parameters
- * @param {string} params.deviceUuid - Device UUID from URL
+ * @param {Object} context - Route context
+ * @param {Promise<{ deviceUuid: string }>} context.params - Route parameters
  * @returns {Promise<NextResponse>} Response with configuration result or error
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { deviceUuid: string } }
+  context: { params: Promise<{ deviceUuid: string }> }
 ) {
   try {
     // Check authentication
@@ -32,7 +32,7 @@ export async function POST(
     console.log('Authentication successful, proceeding to configure threshold...');
 
     // Get device UUID from params
-    const { deviceUuid } = params;
+    const { deviceUuid } = await context.params;
     
     if (!deviceUuid) {
       return NextResponse.json(

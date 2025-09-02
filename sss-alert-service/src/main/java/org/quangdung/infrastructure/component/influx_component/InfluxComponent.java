@@ -8,8 +8,8 @@ import org.jboss.logging.Logger;
 import com.influxdb.client.InfluxDBClient;
 import com.influxdb.client.InfluxDBClientFactory;
 import com.influxdb.query.FluxTable;
-
-import io.smallrye.mutiny.Multi;
+import io.smallrye.mutiny.infrastructure.Infrastructure;
+import io.smallrye.mutiny.Uni;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -38,6 +38,7 @@ public class InfluxComponent {
 
     private InfluxDBClient influxDBClient;
 
+
     @PostConstruct
     private void init(){
         log.info("Initializing InfluxDB connection");
@@ -50,9 +51,9 @@ public class InfluxComponent {
      * Retrieves all telemetry field names for a specific device
      * 
      * @param deviceUuid The device UUID to retrieve field names for
-     * @return Multi<List<String>> A stream of lists containing field names
+     * @return Uni<List<String>> A Uni containing a list of field names
      */
-    public Multi<List<String>> getTelemetryValueNames(String deviceUuid) {
+    public Uni<List<String>> getTelemetryValueNames(String deviceUuid) {
         log.info("Getting telemetry value names for device: " + deviceUuid);
         
         String query = String.format(
@@ -68,38 +69,41 @@ public class InfluxComponent {
         
         log.info("Executing query: " + query);
         
-        return Multi.createFrom().emitter(emitter -> {
-            try {
-                // Execute the query and collect field names
-                List<FluxTable> tables = influxDBClient.getQueryApi().query(query);
-                
-                log.info("Query returned " + tables.size() + " tables");
-                
-                // Process all records from all tables
-                List<String> fieldNames = tables.stream()
-                    .flatMap(table -> {
-                        log.info("Table has " + table.getRecords().size() + " records");
-                        return table.getRecords().stream();
-                    })
-                    .map(record -> {
-                        // Khi sử dụng distinct(), giá trị sẽ nằm trong cột _value
-                        Object fieldValue = record.getValueByKey("_value"); 
-                        log.info("Found field value: " + (fieldValue != null ? fieldValue.toString() : "null"));
-                        return fieldValue != null ? fieldValue.toString() : null;
-                    })
-                    .filter(fieldName -> fieldName != null) // Filter out null values
-                    .distinct()
-                    .toList();
-                
-                // Emit the list of field names
-                log.info("Found " + fieldNames.size() + " telemetry fields for device: " + deviceUuid);
-                emitter.emit(fieldNames);
-                emitter.complete();
-            } catch (Exception e) {
-                log.error("Error retrieving telemetry field names: " + e.getMessage(), e);
-                emitter.fail(e);
-            }
-        });
+        return Uni.createFrom().voidItem()
+            .runSubscriptionOn(Infrastructure.getDefaultWorkerPool())
+            .onItem().transform(ignored -> {
+                try {
+                    // Execute the query and collect field names
+                    List<FluxTable> tables = influxDBClient.getQueryApi().query(query);
+                    
+                    log.info("Query returned " + tables.size() + " tables");
+                    
+                    // Process all records from all tables
+                    List<String> fieldNames = tables.stream()
+                        .flatMap(table -> {
+                            log.info("Table has " + table.getRecords().size() + " records");
+                            return table.getRecords().stream();
+                        })
+                        .map(record -> {
+                            Object fieldValue = record.getValueByKey("_value"); 
+                            log.info("Found field value: " + (fieldValue != null ? fieldValue.toString() : "null"));
+                            return fieldValue != null ? fieldValue.toString() : null;
+                        })
+                        .filter(fieldName -> fieldName != null) // Filter out null values
+                        .distinct()
+                        .toList();
+                    
+                    // Return the list of field names
+                    log.info("Found " + fieldNames.size() + " telemetry fields for device: " + deviceUuid);
+                    return fieldNames;
+                } catch (Exception e) {
+                    log.error("Error retrieving telemetry field names: " + e.getMessage(), e);
+                    throw new RuntimeException("Failed to query InfluxDB", e);
+                }
+            })
+            .onFailure().invoke(failure -> {
+                log.error("Failed to execute InfluxDB query", failure);
+            });
     }
 
     @PreDestroy

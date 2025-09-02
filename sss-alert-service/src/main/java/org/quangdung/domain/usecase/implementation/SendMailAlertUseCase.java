@@ -158,6 +158,21 @@ public class SendMailAlertUseCase implements ISendMailAlertUseCase {
         
         return Uni.createFrom().voidItem(); 
     }
+
+    public Uni<Void> execute(String subject, String body) {
+        return getAlertEmailsUseCase.execute()
+        .onItem().transformToUni(emails -> {
+            if (emails != null && !emails.isEmpty()) {
+                log.info("Sending alert email to " + emails.size() + " recipients");
+                //  return Uni.createFrom().voidItem(); 
+
+                return mailComponent.sendAlertMail(subject, body, emails);
+            } else {
+                log.info("No alert email recipients configured, skipping email notification");
+                return Uni.createFrom().voidItem();
+            }
+        });
+    }
     
     /**
      * Process the subject template by replacing placeholders with actual values.
