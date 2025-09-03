@@ -9,7 +9,7 @@ const char* PowerOutageDetector::TAG = "POWER_OUTAGE";
  * @brief Constructor
  */
 PowerOutageDetector::PowerOutageDetector() 
-    : m_gpio_pin(GPIO_NUM_4), m_initialized(false) {
+    : m_gpio_pin(GPIO_NUM_2), m_initialized(false) {
 }
 
 /**
@@ -35,7 +35,7 @@ esp_err_t PowerOutageDetector::init(gpio_num_t gpio_pin) {
     io_conf.mode = GPIO_MODE_INPUT;
     io_conf.pin_bit_mask = (1ULL << m_gpio_pin);
     io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
-    io_conf.pull_up_en = GPIO_PULLUP_ENABLE;
+    io_conf.pull_up_en = GPIO_PULLUP_ENABLE;  // Pull-up enabled
     
     esp_err_t ret = gpio_config(&io_conf);
     if (ret != ESP_OK) {
@@ -59,13 +59,12 @@ int PowerOutageDetector::getPowerStatus() {
         return 0;
     }
     
-    // Read GPIO level
-    // When strap is connected to GND: GPIO reads 0 (power available)
-    // When strap is disconnected: GPIO reads 1 (power outage)
     int gpio_level = gpio_get_level(m_gpio_pin);
     
-    // Invert logic: 0 = power outage, 1 = power available
-    return (gpio_level == 0) ? 1 : 0;
+    // When strap is connected to GND: GPIO reads 0 (power available)
+    // When strap is disconnected: GPIO reads 1 (power outage)
+    int power_status = (gpio_level == 0) ? 1 : 0;
+    return power_status;
 }
 
 /**
@@ -78,6 +77,10 @@ bool PowerOutageDetector::isPowerOutage() {
 
 /**
  * @brief Configure GPIO for deep sleep wake-up on power outage
+ * @return ESP_OK on success, error code otherwise
+ */
+/**
+ * @brief Configure GPIO wake-up for deep sleep mode
  * @return ESP_OK on success, error code otherwise
  */
 esp_err_t PowerOutageDetector::configureWakeUp() {
@@ -117,14 +120,22 @@ esp_err_t PowerOutageDetector::configureWakeUp() {
         return ret;
     }
     
-    // Configure wake-up on rising edge (when strap disconnects)
-    ret = esp_sleep_enable_ext0_wakeup(m_gpio_pin, 1);
+    // Configure wake-up using EXT1 for ESP32-C6 compatibility
+    // Create bitmask for the GPIO pin
+    uint64_t ext_wakeup_pin_mask = 1ULL << m_gpio_pin;
+    
+    // Thêm log để debug
+    int current_level = gpio_get_level(m_gpio_pin);
+    ESP_LOGI(TAG, "Current GPIO%d level before sleep: %d", m_gpio_pin, current_level);
+    
+    // Configure EXT1 wake-up on high level (when strap disconnects)
+    ret = esp_sleep_enable_ext1_wakeup(ext_wakeup_pin_mask, ESP_EXT1_WAKEUP_ANY_HIGH);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to enable ext0 wakeup: %s", esp_err_to_name(ret));
+        ESP_LOGE(TAG, "Failed to enable ext1 wakeup: %s", esp_err_to_name(ret));
         return ret;
     }
     
-    ESP_LOGI(TAG, "Configured wake-up on power outage for GPIO%d", m_gpio_pin);
+    ESP_LOGI(TAG, "Configured EXT1 wake-up on power outage for GPIO%d", m_gpio_pin);
     return ESP_OK;
 }
 
@@ -138,8 +149,8 @@ esp_err_t PowerOutageDetector::disableWakeUp() {
         return ESP_ERR_INVALID_STATE;
     }
     
-    // Disable ext0 wake-up
-    esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_EXT0);
+    // Disable ext1 wake-up for ESP32-C6
+    esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_EXT1);
     
     ESP_LOGI(TAG, "Disabled GPIO wake-up for power outage detection");
     return ESP_OK;

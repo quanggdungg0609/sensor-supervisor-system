@@ -85,3 +85,30 @@ esp_err_t StorageManager::load_config(app_config_t& config) {
     ESP_LOGI(TAG, "Configuration loaded.");
     return ESP_OK;
 }
+
+/**
+ * Check if configuration exists in NVS by verifying essential fields
+ * @return true if configuration exists, false otherwise
+ */
+bool StorageManager::is_config_exists() {
+    nvs_handle_t my_handle;
+    esp_err_t err = nvs_open(STORAGE_NAMESPACE, NVS_READONLY, &my_handle);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Error (%s) opening NVS handle for checking config!", esp_err_to_name(err));
+        return false;
+    }
+
+    size_t required_size;
+    bool config_exists = false;
+    
+    // Check if essential fields exist (SSID and device_name are mandatory)
+    if (nvs_get_str(my_handle, "ssid", NULL, &required_size) == ESP_OK && required_size > 1) {
+        if (nvs_get_str(my_handle, "device_name", NULL, &required_size) == ESP_OK && required_size > 1) {
+            config_exists = true;
+        }
+    }
+
+    nvs_close(my_handle);
+    ESP_LOGI(TAG, "Configuration exists: %s", config_exists ? "YES" : "NO");
+    return config_exists;
+}

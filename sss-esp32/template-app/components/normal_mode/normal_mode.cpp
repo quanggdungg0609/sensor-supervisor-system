@@ -11,6 +11,7 @@
 #include "esp_timer.h"
 #include "mqtt_client.h"
 #include <string>
+#include <cmath>
 #include "nvs_flash.h"
 #include "nvs.h"
 
@@ -55,10 +56,15 @@ void NormalMode::mqtt_event_handler(void* handler_args, esp_event_base_t base, i
         
         // Create telemetry message with new format
         std::string timestamp = NTPClient::getInstance().getFormattedTimestamp();
-        std::string telemetry_data = "{\"data\":{\"temperature\":" + std::to_string(temperature) + 
-                                   ",\"humidity\":" + std::to_string(humidity) + 
-                                   ",\"power_status\":" + std::to_string(power_status) + 
-                                   "},\"timestamp\":\"" + timestamp + "\"}";
+        std::string telemetry_data = "{\"data\":{\"temperature\":" + std::to_string(temperature);
+        
+        // Only include humidity if it's a valid number (not NaN)
+        if (!std::isnan(humidity)) {
+            telemetry_data += ",\"humidity\":" + std::to_string(humidity);
+        }
+        
+        telemetry_data += ",\"power_status\":" + std::to_string(power_status) + 
+                         "},\"timestamp\":\"" + timestamp + "\"}";
         
         // Create topic string with correct format: sensors/[clientId]/telemetry
         std::string topic = "sensors/" + std::string(normal_mode->app_config.mqtt_client_id) + "/telemetry";
@@ -67,7 +73,11 @@ void NormalMode::mqtt_event_handler(void* handler_args, esp_event_base_t base, i
                                             telemetry_data.c_str(), telemetry_data.length(), 1, 0);
         
         if (msg_id != -1) {
-            ESP_LOGI(TAG, "Telemetry data sent successfully (T:%.2f°C, H:%.2f%%, P:%d, msg_id: %d)", temperature, humidity, power_status, msg_id);
+            if (!std::isnan(humidity)) {
+                ESP_LOGI(TAG, "Telemetry data sent successfully (T:%.2f°C, H:%.2f%%, P:%d, msg_id: %d)", temperature, humidity, power_status, msg_id);
+            } else {
+                ESP_LOGI(TAG, "Telemetry data sent successfully (T:%.2f°C, P:%d, msg_id: %d)", temperature, power_status, msg_id);
+            }
         } else {
             ESP_LOGE(TAG, "Failed to send telemetry data");
         }

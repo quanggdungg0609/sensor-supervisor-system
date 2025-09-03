@@ -34,6 +34,11 @@ public:
     // Load configuration from NVS.
     esp_err_t load_config(app_config_t& config);
 
+    /**
+     * Check if configuration exists in NVS
+     * @return true if configuration exists, false otherwise
+     */
+    bool is_config_exists();
 private:
     // Private constructor to prevent external instantiation.
     StorageManager() = default; 

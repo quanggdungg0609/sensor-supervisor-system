@@ -24,7 +24,7 @@ public:
      * @param gpio_pin GPIO pin number to monitor (default: GPIO_NUM_4)
      * @return ESP_OK on success, error code otherwise
      */
-    esp_err_t init(gpio_num_t gpio_pin = GPIO_NUM_4);
+    esp_err_t init(gpio_num_t gpio_pin = GPIO_NUM_2);  // Thay đổi từ GPIO_NUM_4 sang GPIO_NUM_2
     
     /**
      * @brief Get current power status

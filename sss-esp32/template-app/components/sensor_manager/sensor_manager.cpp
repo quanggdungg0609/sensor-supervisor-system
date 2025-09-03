@@ -13,21 +13,20 @@ static const char* TAG = "SENSOR_MANAGER";
 bool SensorManager::init() {
     ESP_LOGI(TAG, "Initializing sensor manager...");
     
-    // Initialize SHT30 sensor with default pins (SDA=21, SCL=22)
-    esp_err_t ret = sht30Sensor.init();
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to initialize SHT30 sensor: %s", esp_err_to_name(ret));
+    // Initialize PT100 sensor
+    if (!pt100Sensor.init()) {
+        ESP_LOGE(TAG, "Failed to initialize PT100 sensor");
         return false;
     }
     
     // Initialize Power Outage Detector
-    ret = powerOutageDetector.init();
+    esp_err_t ret = powerOutageDetector.init(GPIO_NUM_2);  // Thêm tham số GPIO_NUM_2
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to initialize power outage detector: %s", esp_err_to_name(ret));
         return false;
     }
     
-    ESP_LOGI(TAG, "Sensor manager initialized successfully with SHT30 and Power Outage Detector");
+    ESP_LOGI(TAG, "Sensor manager initialized successfully with PT100 and Power Outage Detector");
     return true;
 }
 
@@ -41,8 +40,8 @@ std::string SensorManager::getAggregatedDataJson() {
     
     JsonObject data = doc["data"].to<JsonObject>();
     data["temperature"] = getTemperature();
-    data["humidity"] = getHumidity();
-    data["power_status"] = getPowerStatus();  // Add power status field
+    // Removed humidity field since PT100 only measures temperature
+    data["power_status"] = getPowerStatus();
     
     std::string jsonString;
     serializeJson(doc, jsonString);
@@ -66,19 +65,20 @@ std::string SensorManager::getPowerOutageJson() {
 }
 
 /**
- * @brief Get temperature from SHT30 sensor
+ * @brief Get temperature from PT100 sensor
  * @return Temperature in Celsius, NAN if error
  */
 float SensorManager::getTemperature() {
-    return sht30Sensor.getTemperature();
+    return pt100Sensor.readTemperature();
 }
 
 /**
- * @brief Get humidity from SHT30 sensor
- * @return Humidity percentage, NAN if error
+ * @brief Get humidity (not available with PT100)
+ * @return NAN since PT100 only measures temperature
  */
 float SensorManager::getHumidity() {
-    return sht30Sensor.getHumidity();
+    ESP_LOGW(TAG, "Humidity not available with PT100 sensor");
+    return NAN;
 }
 
 /**

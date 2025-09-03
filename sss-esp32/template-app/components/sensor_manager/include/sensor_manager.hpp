@@ -2,9 +2,8 @@
 #define SENSOR_MANAGER_HPP
 
 #include <string>
-#include "sht30_sensor.hpp"
+#include "pt100_sensor.hpp"
 #include "power_outage_detector.hpp"
-// #include "pt100_sensor.hpp"  // Comment out PT100
 
 class SensorManager {
 public:
@@ -40,14 +39,14 @@ public:
     int getPowerStatus();
     
     /**
-     * @brief Get temperature from SHT30 sensor
+     * @brief Get temperature from PT100 sensor
      * @return Temperature in Celsius
      */
     float getTemperature();
     
     /**
-     * @brief Get humidity from SHT30 sensor
-     * @return Humidity in percentage
+     * @brief Get humidity (deprecated - PT100 only measures temperature)
+     * @return NAN since PT100 only measures temperature
      */
     float getHumidity();
     
@@ -58,9 +57,8 @@ public:
     esp_err_t disablePowerOutageWakeUp();
 
 private:
-    SHT30Sensor sht30Sensor;                    ///< SHT30 temperature and humidity sensor
+    PT100Sensor pt100Sensor;                   ///< PT100 temperature sensor
     PowerOutageDetector powerOutageDetector;    ///< Power outage detector
-    // PT100Sensor pt100;                       // Comment out PT100
 };
 
 #endif // SENSOR_MANAGER_HPP

@@ -13,7 +13,7 @@
 static const char* TAG = "MAIN_APP";
 
 // Boot button pin
-#define BOOT_BUTTON_PIN GPIO_NUM_0
+#define BOOT_BUTTON_PIN GPIO_NUM_9
 
 extern "C" void app_main(void) {
     // Initialize NVS
@@ -34,47 +34,57 @@ extern "C" void app_main(void) {
     io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
     io_conf.pull_up_en = GPIO_PULLUP_ENABLE;
     gpio_config(&io_conf);
+    vTaskDelay(pdMS_TO_TICKS(100));
     
-    // Check if boot button is pressed
-    if (gpio_get_level(BOOT_BUTTON_PIN) == 0) {
+    int gpio_level = gpio_get_level(BOOT_BUTTON_PIN);
+    ESP_LOGI(TAG, "GPIO0 level: %d", gpio_level);
+    
+    if (gpio_level == 0) {
         ESP_LOGI(TAG, "Boot button pressed. Starting Configuration Mode.");
         static ConfigurationMode config_mode;
         config_mode.start();
     } else {
-        // Check wake-up reason
-        uint32_t wakeup_causes = esp_sleep_get_wakeup_causes();
-        
-        // Load the saved configuration from NVS
-        app_config_t cfg = {};
-        StorageManager::getInstance().load_config(cfg);
-        
-        // Initialize power detector to check current status
-        PowerOutageDetector power_detector;
-        power_detector.init(GPIO_NUM_4);
-        
-        // Check if max alerts flag is set
-        AlertMode temp_alert(cfg);
-        if (temp_alert.isMaxAlertsReached()) {
-            // Max alerts reached, force normal mode regardless of power status
-            ESP_LOGI(TAG, "Max alerts reached, forcing Normal Mode.");
-            temp_alert.setMaxAlertsReached(false); // Reset flag
-            static NormalMode normal_mode(cfg);
-            normal_mode.start();
-        } else if (wakeup_causes & ESP_SLEEP_WAKEUP_EXT0) {
-            // Power outage detected, start Alert Mode
-            ESP_LOGW(TAG, "Power outage detected. Starting Alert Mode.");
-            static AlertMode alert_mode(cfg);
-            alert_mode.start();
-        } else if (power_detector.isPowerOutage()) {
-            // Power is still out even on normal wake-up
-            ESP_LOGW(TAG, "Power still out on normal wake-up. Starting Alert Mode.");
-            static AlertMode alert_mode(cfg);
-            alert_mode.start();
+        // Check if configuration exists
+        if (!StorageManager::getInstance().is_config_exists()) {
+            ESP_LOGI(TAG, "No configuration found. Starting Configuration Mode.");
+            static ConfigurationMode config_mode;
+            config_mode.start();
         } else {
-            // Normal wake-up with power available, start Normal Mode
-            ESP_LOGI(TAG, "Normal wake-up. Starting Normal Mode.");
-            static NormalMode normal_mode(cfg);
-            normal_mode.start();
+            // Check wake-up reason
+            uint32_t wakeup_causes = esp_sleep_get_wakeup_causes();
+            
+            // Load the saved configuration from NVS
+            app_config_t cfg = {};
+            StorageManager::getInstance().load_config(cfg);
+            
+            // Initialize power detector to check current status
+            PowerOutageDetector power_detector;
+            power_detector.init(GPIO_NUM_2);  // Thay đổi từ GPIO_NUM_4 sang GPIO_NUM_2
+            
+            // Check if max alerts flag is set
+            AlertMode temp_alert(cfg);
+            if (temp_alert.isMaxAlertsReached()) {
+                // Max alerts reached, force normal mode regardless of power status
+                ESP_LOGI(TAG, "Max alerts reached, forcing Normal Mode.");
+                temp_alert.setMaxAlertsReached(false); // Reset flag
+                static NormalMode normal_mode(cfg);
+                normal_mode.start();
+            } else if (wakeup_causes & ESP_SLEEP_WAKEUP_EXT0) {
+                // Power outage detected, start Alert Mode
+                ESP_LOGW(TAG, "Power outage detected. Starting Alert Mode.");
+                static AlertMode alert_mode(cfg);
+                alert_mode.start();
+            } else if (power_detector.isPowerOutage()) {
+                // Power is still out even on normal wake-up
+                ESP_LOGW(TAG, "Power still out on normal wake-up. Starting Alert Mode.");
+                static AlertMode alert_mode(cfg);
+                alert_mode.start();
+            } else {
+                // Normal wake-up with power available, start Normal Mode
+                ESP_LOGI(TAG, "Normal wake-up. Starting Normal Mode.");
+                static NormalMode normal_mode(cfg);
+                normal_mode.start();
+            }
         }
     }
     

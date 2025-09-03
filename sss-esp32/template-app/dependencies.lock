@@ -98,5 +98,5 @@ direct_dependencies:
 - espressif/sht3x
 - idf
 manifest_hash: f54ee2bda897c00a9097274ef39a7e039cbabf05e7b6a5864e92a4067b2cbb5a
-target: esp32
+target: esp32c6
 version: 2.0.0
